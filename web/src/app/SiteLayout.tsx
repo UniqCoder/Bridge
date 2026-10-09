@@ -33,8 +33,9 @@ export function Footer() {
 export function SiteLayout({ notFound }: { notFound?: boolean }) {
   return (
     <div className="site">
+      <a href="#main" className="skip">Skip to content</a>
       <header className="site-nav">
-        <div className="wrap spread">
+        <div className="nav-island">
           <Link to="/" aria-label="BridgeWitness home"><Logo /></Link>
           <nav className="site-links" aria-label="Primary">
             <NavLink to="/console/live">Live console</NavLink>
@@ -44,10 +45,10 @@ export function SiteLayout({ notFound }: { notFound?: boolean }) {
             <NavLink to="/console/results">Results</NavLink>
             <NavLink to="/docs/architecture">How it works</NavLink>
           </nav>
-          <ButtonLink to="/console/live" size="sm">Open the console</ButtonLink>
+          <Link to="/console/live" className="nav-cta">Open the console</Link>
         </div>
       </header>
-      <main>
+      <main id="main">
         {notFound ? (
           <section className="wrap notfound">
             <span className="label">404 · no such page</span>

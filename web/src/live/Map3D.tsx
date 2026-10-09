@@ -66,7 +66,7 @@ const BLOCK = new THREE.BoxGeometry(1, 1, 1);
 const dummy = new THREE.Object3D();
 
 /** The bridge vault: a locked block inside a tumbling cage, a security scanner, and shockwaves when the alarm is on. */
-function Vault({ alarm }: { alarm: boolean }) {
+function Vault({ alarm, bare }: { alarm: boolean; bare?: boolean }) {
   const cage = useRef<THREE.Group>(null!), core = useRef<THREE.Mesh>(null!), scan = useRef<THREE.Mesh>(null!);
   const waves = useRef<THREE.Mesh[]>([]);
   const cageGeo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(2.8, 2.8, 2.8)), []);
@@ -96,9 +96,9 @@ function Vault({ alarm }: { alarm: boolean }) {
         <mesh key={i} rotation={[0, Math.PI / 2, 0]} ref={(m) => { if (m) waves.current[i] = m; }}>
           <ringGeometry args={[0.95, 1, 64]} /><meshBasicMaterial color={hue} transparent opacity={0} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
         </mesh>))}
-      <Html position={[0, -3.1, 0]} center style={{ pointerEvents: 'none' }}>
+      {!bare && <Html position={[0, -3.1, 0]} center style={{ pointerEvents: 'none' }}>
         <div className={`m3-tag m3-tag--vault ${alarm ? 'is-alarm' : ''}`}><b>{alarm ? 'BRIDGE VAULT · BREACH' : 'BRIDGE VAULT'}</b><span>{alarm ? 'copper = paid out with no deposit in' : 'money in on the left, money out on the right'}</span></div>
-      </Html>
+      </Html>}
     </group>
   );
 }
@@ -133,7 +133,7 @@ function Tunnel({ alarm }: { alarm: boolean }) {
 }
 
 /** A chain's ledger: a dim grid of blocks with a scanning line, so the plane reads as "a blockchain". */
-function Ledger({ side, label, sub, color }: { side: -1 | 1; label: string; sub: string; color: string }) {
+function Ledger({ side, label, sub, color, bare }: { side: -1 | 1; label: string; sub: string; color: string; bare?: boolean }) {
   const grid = useRef<THREE.InstancedMesh>(null!), line = useRef<THREE.Mesh>(null!);
   const frame = useMemo(() => new THREE.EdgesGeometry(new THREE.PlaneGeometry(11, 11).rotateY(Math.PI / 2)), []);
   useEffect(() => {
@@ -150,14 +150,14 @@ function Ledger({ side, label, sub, color }: { side: -1 | 1; label: string; sub:
       <instancedMesh ref={grid} args={[BLOCK, undefined, 169]}><meshBasicMaterial color={color} transparent opacity={0.28} toneMapped={false} /></instancedMesh>
       <mesh ref={line}><boxGeometry args={[0.02, 11, 0.07]} /><meshBasicMaterial color={color} transparent opacity={0.8} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} /></mesh>
       <lineSegments geometry={frame}><lineBasicMaterial color={color} transparent opacity={0.55} /></lineSegments>
-      <Html position={[0, 6.3, 0]} center style={{ pointerEvents: 'none' }}>
+      {!bare && <Html position={[0, 6.3, 0]} center style={{ pointerEvents: 'none' }}>
         <div className="m3-tag" style={{ borderColor: color, color }}><b>{label}</b><span>{sub}</span></div>
-      </Html>
+      </Html>}
     </group>
   );
 }
 
-function Scene({ data, n, selected, onSelect, spin }: Props) {
+function Scene({ data, n, selected, onSelect, spin, bare }: Props) {
   const g = useMemo(() => build(data), [data]);
   const mesh = useRef<THREE.InstancedMesh>(null!);
   const geo = useMemo(() => {
@@ -200,7 +200,7 @@ function Scene({ data, n, selected, onSelect, spin }: Props) {
     }
     pa.needsUpdate = true;
     // Fly-in on load, a short camera jolt the moment the first unbacked payout appears.
-    if (T < 3) { const e = 1 - Math.pow(1 - Math.min(T / 3, 1), 3); camera.position.lerp(new THREE.Vector3(17, 9, 30), 0.03 + e * 0.05); }
+    if (T < 3) { const e = 1 - Math.pow(1 - Math.min(T / 3, 1), 3); camera.position.lerp(new THREE.Vector3(...(bare ? [13, 6, 24] : [17, 9, 30]) as [number, number, number]), 0.03 + e * 0.05); }
     if (hasVoid && !was.current) shake.current = 0.9;
     was.current = hasVoid;
     if (shake.current > 0) { shake.current -= 0.02; camera.position.x += (Math.random() - 0.5) * 0.35 * shake.current; camera.position.y += (Math.random() - 0.5) * 0.35 * shake.current; }
@@ -209,13 +209,13 @@ function Scene({ data, n, selected, onSelect, spin }: Props) {
     <>
       <color attach="background" args={['#06070a']} />
       <fog attach="fog" args={['#06070a', 30, 70]} />
-      <Ledger side={-1} label="SOURCE CHAIN" sub={`${data.src} · where deposits are made`} color="#c9a7ff" />
-      <Ledger side={1} label="DESTINATION CHAIN" sub={`${data.dst} · where payouts are made`} color="#8c9eff" />
-      <Vault alarm={hasVoid} />
+      <Ledger side={-1} label="SOURCE CHAIN" sub={`${data.src} · where deposits are made`} color="#c9a7ff" bare={bare} />
+      <Ledger side={1} label="DESTINATION CHAIN" sub={`${data.dst} · where payouts are made`} color="#8c9eff" bare={bare} />
+      <Vault alarm={hasVoid} bare={bare} />
       <Tunnel alarm={hasVoid} />
       <lineSegments geometry={geo}><lineBasicMaterial vertexColors transparent opacity={0.6} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} /></lineSegments>
       <points geometry={ptsGeo} frustumCulled={false}><pointsMaterial vertexColors size={0.16} sizeAttenuation transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></points>
-      <Stars radius={70} depth={40} count={1200} factor={2.4} fade speed={0.5} />
+      <Stars radius={70} depth={40} count={bare ? 2200 : 1200} factor={2.4} fade speed={0.5} />
       <gridHelper args={[80, 80, '#1c2026', '#101318']} position={[0, -1.2, 0]} />
       <instancedMesh ref={mesh} args={[BLOCK, undefined, data.events.length]} onClick={pick}>
         <meshBasicMaterial toneMapped={false} />
@@ -225,12 +225,14 @@ function Scene({ data, n, selected, onSelect, spin }: Props) {
         <ChromaticAberration offset={useMemo(() => new THREE.Vector2(hasVoid ? 0.0016 : 0.0005, hasVoid ? 0.0012 : 0.0004), [hasVoid])} radialModulation={false} modulationOffset={0} />
         <Vignette offset={0.25} darkness={0.75} />
       </EffectComposer>
-      <OrbitControls target={[0, 5, 0]} enableDamping dampingFactor={0.08} autoRotate={spin} autoRotateSpeed={0.5} minDistance={10} maxDistance={50} enablePan={false} />
+      <OrbitControls target={bare ? [-10, 4.5, 0] : [0, 5, 0]} enableZoom={!bare} enableDamping dampingFactor={0.08} autoRotate={spin} autoRotateSpeed={0.5} minDistance={10} maxDistance={50} enablePan={false} />
     </>
   );
 }
 
-type Props = { data: Replay; n: number; selected: string | null; onSelect: (id: string) => void; spin?: boolean };
+type Props = { data: Replay; n: number; selected: string | null; onSelect: (id: string) => void; spin?: boolean; bare?: boolean };
+
+export default Map3D;
 
 export function Map3D(p: Props) {
   let dep = 0, backed = 0, gap = 0;
@@ -242,12 +244,14 @@ export function Map3D(p: Props) {
   return (
     <div className="lg-canvas m3" role="img" aria-label={`3D map of ${p.data.label}: deposits on the left chain, the bridge vault in the middle, payouts on the right chain; copper packets and arcs are payouts with no deposit.`}>
       <Canvas dpr={[1, 1.75]} camera={{ fov: 40, position: [44, 22, 70] }}><Scene {...p} /></Canvas>
+      {!p.bare && <>
       <div className={`m3-hud ${breach ? 'is-breach' : ''}`} aria-hidden="true">
         <div><span>MONEY IN</span><b>{usd(dep)}</b><i>locked on the source chain</i></div>
         <div><span>PAID OUT WITH A DEPOSIT</span><b className="ok">{usd(backed)}</b><i>matched to a real deposit</i></div>
         <div><span>PAID OUT WITH NO DEPOSIT</span><b className={breach ? 'bad' : ''}>{usd(gap)}</b><i>{breach ? 'this is the hack' : 'none so far'}</i></div>
       </div>
       <p className={`m3-cap ${breach ? 'is-breach' : ''}`}>{breach ? 'BREACH: the vault is paying out coins that were never deposited.' : 'Normal: every payout on the right matches a deposit on the left.'}</p>
+      </>}
     </div>
   );
 }
