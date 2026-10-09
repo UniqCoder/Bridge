@@ -7,7 +7,7 @@ Read this first. Then `NEW.md` (the locked product spec, with a PDF beside it in
 | Problem statement | CSB-01 · Real-time detection of cross-chain bridge exploits (Chainalysis): dashboard over a live or replayed feed; flag volume spikes, unusual signer behaviour, mismatched deposit/withdrawal pairs; risk-scored alert with suspected exploit type |
 | Repo | https://github.com/UniqCoder/Bridge (private), branch `main`, git root `D:\fusionhack`, local identity `UniqCoder` |
 | Brand line | "Signatures can be stolen. Conservation can't." |
-| Status (10 Oct 2026) | Backend, models, API, Docker image and the whole frontend are built and verified locally. **Not deployed**: Render and Vercel need the user's accounts (see §6) |
+| Status (10 Oct 2026) | **Deployed on Render** (free plan, one Blueprint): website https://bridgewitness-web.onrender.com · API https://bridgewitness-api.onrender.com (`/health`). Verified live: pages and deep links, "live server" tag, Across live feed, CORS locked to the site. See §6 |
 
 ## 1. What exists
 
@@ -98,26 +98,30 @@ Selfcheck note: if a count in this file disagrees with the script output, trust 
 
 Done and verified by the user's request list: new ML + algorithms, real signer recovery, live graph console, USP demos on real data, evidence page without bundles, results page, plain-language wording, landing, docs page, Docker image, Render/Vercel config, `NEW.md` + PDF.
 
-Rules the user set: **no AI subagents** (they burn the user's credits; saved in memory); `NEW.md` is locked (only small corrections and measured numbers); keep claims honest; hosting limits are Render free (512 MB) + Vercel.
+Rules the user set: **no AI subagents** (they burn the user's credits; saved in memory); `NEW.md` is locked (only small corrections and measured numbers); keep claims honest; hosting is Render free (512 MB), API + static site.
 
 ## 5. Next steps (in priority order)
 
-1. **Deploy** (§6). Nothing else is blocking.
+1. Deployed (§6). Before a demo, wake the API with `/health`.
 2. Check the layouts at phone width by eye (375 px) on Live, Ideas, Check and Results; desktop (1440) was reviewed from screenshots.
 3. Landing page: add a one-screen "try it now" strip with the live graph (currently text and numbers only).
 4. Trim dead CSS in `app/console.css` and `app/site.css` (rules for the deleted pages); several generic class names there collide with new ones (`.bars`, `.kv`, `.readouts`, `.big`), which is why the new pages use `sigbars`, `facts`, `reads`, `bignum`.
 5. Optional depth if time remains: Harmony/Orbit multisig signer recovery (needs a free Etherscan key; keyless RPC refuses historic `eth_getLogs`), a Wormhole or LayerZero live tail as a second source.
 6. Update the pitch deck in `pitch/` from `NEW.md` (the existing deck is the old product).
 
-## 6. Deploying
+## 6. Deploying (done, 10 Oct 2026)
 
-Not done: no Render CLI or API key on this machine and the Claude-in-Chrome extension was not connected. The image was verified by a **clean `git clone` + `docker build` + endpoint test** (all 200, CORS correct, 43 MB).
+| | URL | Render service |
+|---|---|---|
+| Website | https://bridgewitness-web.onrender.com | `bridgewitness-web`, static site built from `web/` (`npm ci && npm run build`, publishes `dist`, SPA rewrite) |
+| API | https://bridgewitness-api.onrender.com | `bridgewitness-api`, Docker (`Dockerfile`), free plan, health check `/health` |
+| Blueprint | `bridge` (exs-db4l60nlot8c73bfbq00), repo `UniqCoder/Bridge`, branch `main` | `render.yaml` |
 
-1. Render needs access to the private repo: install the Render GitHub app for `UniqCoder/Bridge`, or make the repo public (user's call).
-2. Render -> New -> Blueprint -> pick the repo (`render.yaml`: Docker web service, free plan, health check `/health`).
-3. Vercel -> import the repo, **root directory `web`**, env var `VITE_BW_API=<Render URL>` (no trailing slash).
-4. Render env var `BW_ALLOWED_ORIGIN=<Vercel URL>` (comma-separate several). The default `*` also works but is open.
-5. Smoke test: open the Vercel URL, `/console/live`, press Play; the top-right tag should read "live server". Free Render sleeps when idle: the first request can take about 50 s, and the site falls back to its bundled replay files meanwhile.
+- Both services redeploy on every push to `main`; the Blueprint syncs env vars from `render.yaml`.
+- `VITE_BW_API=https://bridgewitness-api.onrender.com` (site) and `BW_ALLOWED_ORIGIN=https://bridgewitness-web.onrender.com` (API) are set as plain values. **Do not use `fromService ... property: host`**: Render returns the internal host name (`bridgewitness-api`), which browsers cannot reach, so the site silently fell back to its bundled files and the live feed failed.
+- Image: 263 MB on disk (about 61 MB compressed), about 45 MB RAM of the 512 MB free limit. Models are not in the image; it serves the prebuilt JSON artifacts.
+- Free plan sleeps after about 15 min idle; the first request then takes about 50 s. Before a demo, open `/health` once. Meanwhile the site uses `web/public/data/*.json`.
+- Vercel is no longer needed (`web/vercel.json` is kept only as an alternative).
 
 ## 7. Pitfalls already found
 

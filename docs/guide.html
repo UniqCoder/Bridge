@@ -7,6 +7,7 @@ body { font-family: 'Segoe UI', Arial, sans-serif; color: #1d2126; font-size: 10
 .cover h1 { font-size: 42pt; margin: 6mm 0 3mm; letter-spacing: -.02em; }
 .cover .s { font-size: 15pt; color: #5b636d; max-width: 140mm; }
 .cover .l { margin-top: 12mm; font-size: 13pt; } .cover .l b { color: #1e8c78; } .cover .l i { color: #b4532a; font-style: normal; font-weight: 700; }
+.cover .links { margin-top: 12mm; display: grid; gap: 1.5mm; font-size: 11pt; } .cover .links b { font-size: 9pt; letter-spacing: .12em; text-transform: uppercase; color: #b4532a; } .cover .links a { color: #1e8c78; font-weight: 700; font-size: 15pt; text-decoration: none; } .cover .links span a { font-size: 11pt; font-weight: 400; } .cover .links i { font-size: 9pt; color: #5b636d; }
 .cover .m { margin-top: 26mm; font: 8.5pt Consolas, monospace; color: #5b636d; line-height: 1.9; }
 h1.t { font-size: 20pt; margin: 0 0 3mm; }
 .intro p, .intro li { margin: 0 0 2.2mm; }
@@ -26,7 +27,8 @@ table { width: 100%; border-collapse: collapse; font-size: 9.2pt; margin: 2mm 0 
 <section class="cover"><div class="k">CSB-01 · Real-time detection of cross-chain bridge exploits</div><h1>BridgeWitness</h1>
 <div class="s">A page-by-page guide to the prototype, in plain English.</div>
 <div class="l"><b>Signatures can be stolen.</b> <i>Conservation can't.</i></div>
-<div class="m">4 ideas · 3 machine-learning models · 6 algorithms<br/>Real data from the Nomad and Ronin hacks · a live bridge feed<br/>October 2026</div></section>
+<div class="m">4 ideas · 3 machine-learning models · 6 algorithms<br/>Real data from the Nomad and Ronin hacks · a live bridge feed<br/>October 2026</div>
+<div class="links"><b>Try it live</b><a href="https://bridgewitness-web.onrender.com">bridgewitness-web.onrender.com</a><span>API: <a href="https://bridgewitness-api.onrender.com/health">bridgewitness-api.onrender.com</a></span><i>Free hosting sleeps when idle: the first visit can take about 50 seconds to wake up.</i></div></section>
 
 <section class="intro"><h1 class="t">The prototype from A to Z</h1>
 <h3>The problem</h3>
@@ -36,6 +38,7 @@ table { width: 100%; border-collapse: collapse; font-size: 9.2pt; margin: 2mm 0 
 <p><b>Signatures can be stolen. Conservation can't.</b> Coins paid out must never exceed coins locked. BridgeWitness checks that every payout has a deposit behind it, and only says <b>EXPLOIT</b> when that check breaks. Everything else (statistics, machine learning) can only say <b>SUSPICIOUS</b> and help explain.</p>
 <h3>What we measured (on real data)</h3>
 <div class="big"><div><b>384 / 384</b><span>real attack payouts labelled exploit (Nomad 382, Ronin 2)</span></div><div><b>0 of 27,312</b><span>honest payouts wrongly accused</span></div><div><b>$159.6M</b><span>Nomad money paid out with no deposit</span></div></div>
+<p><b>Open it:</b> <a href="https://bridgewitness-web.onrender.com">https://bridgewitness-web.onrender.com</a></p>
 <h3>How it works, in five steps</h3>
 <ol><li><b>Read</b> deposits and payouts, replayed from real hacks or read live.</li><li><b>Pair</b> each payout with one deposit by amount, person and timing.</li><li><b>Measure</b> spread, volume, signers and size against normal days.</li><li><b>Decide</b>: EXPLOIT only if the deposit rule breaks.</li><li><b>Explain</b>: attack type, top reasons, the closest past hack, and a check anyone can repeat.</li></ol>
 <h3>The challenge brief and where to see each part</h3>
@@ -174,5 +177,5 @@ table { width: 100%; border-collapse: collapse; font-size: 9.2pt; margin: 2mm 0 
 <h3>Data and credits</h3>
 <p>Nomad and Ronin transfers: XChainWatcher (Augusto et al., arXiv 2410.02029), MIT licence. Live feed: Across public API.</p>
 <h3>Tech, for the curious</h3>
-<p>Python backend (FastAPI, LightGBM, scikit-learn) packaged in Docker for Render. Website built with React, Vite and TypeScript, with three.js for the 3D map, deployed on Vercel. A self-check of 15 tests must pass before every release.</p></section>
+<p>Python backend (FastAPI, LightGBM, scikit-learn) packaged in Docker (about 45 MB of memory). Website built with React, Vite and TypeScript, with three.js for the 3D map. Both run on Render: the website at bridgewitness-web.onrender.com and the API at bridgewitness-api.onrender.com. A self-check of 16 tests and 30 regression tests must pass before every release.</p></section>
 </body></html>
