@@ -153,7 +153,12 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6mm 0; }
 <li>An ML model scores each new <strong>quorum</strong> (the group of signers) for how unusual it is. It also checks the <strong>withdrawal-ID jump</strong>: the attack used IDs 2,000,000 and 2,000,001 while normal IDs were around 1.0 million, which means the sidechain never issued those IDs.</li>
 </ol>
 <p><strong>Already verified:</strong> we recovered the 5 validators that signed both Ronin attack withdrawals from public data. They are exactly 5 of the 9 registered validators, matching the public post-mortem.</p>
-<p><strong>Why it's unique:</strong> other projects simulate signers. Ours are real, recovered from chain data.</p>
+<p><strong>Measured on 4,200 real normal withdrawals (Jan–Mar 2022, signers recovered from chain):</strong></p>
+<ul>
+<li>The attack's 5-validator group also signed <strong>276 normal withdrawals (6.6%)</strong>, and four of those validators sign almost every withdrawal. So <em>who</em> signed was <strong>not</strong> unusual on its own. This is exactly why Ronin's checks saw nothing wrong, and we say so instead of claiming a false signal.</li>
+<li>What <strong>was</strong> unusual: the withdrawal IDs. Normal IDs ran from 1,029,086 to 1,064,238; the attack used <strong>2,000,000 and 2,000,001</strong>, about 936,000 beyond any ID the sidechain had issued. Signer DNA scores this ID jump, plus the value signed against each group's history, as its main evidence.</li>
+</ul>
+<p><strong>Why it's unique:</strong> other projects simulate signers. Ours are real, recovered from chain data, and the result is reported honestly.</p>
 <h3 id="usp-4-ledger-pairing-every-coin-out-must-have-a-coin-in">USP 4 · Ledger Pairing: "Every coin out must have a coin in"</h3>
 <p><strong>The problem it solves:</strong> most tools match deposits to withdrawals by message id. Nomad copycats <strong>reused real message ids</strong> (one id was used 279 times), so id-matching is fooled.</p>
 <p><strong>What we do:</strong></p>

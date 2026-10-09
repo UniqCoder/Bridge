@@ -104,7 +104,11 @@ BridgeWitness watches both sides of a bridge at once. For every coin released on
 
 **Already verified:** we recovered the 5 validators that signed both Ronin attack withdrawals from public data. They are exactly 5 of the 9 registered validators, matching the public post-mortem.
 
-**Why it's unique:** other projects simulate signers. Ours are real, recovered from chain data.
+**Measured on 4,200 real normal withdrawals (Jan–Mar 2022, signers recovered from chain):**
+- The attack's 5-validator group also signed **276 normal withdrawals (6.6%)**, and four of those validators sign almost every withdrawal. So *who* signed was **not** unusual on its own. This is exactly why Ronin's checks saw nothing wrong, and we say so instead of claiming a false signal.
+- What **was** unusual: the withdrawal IDs. Normal IDs ran from 1,029,086 to 1,064,238; the attack used **2,000,000 and 2,000,001**, about 936,000 beyond any ID the sidechain had issued. Signer DNA scores this ID jump, plus the value signed against each group's history, as its main evidence.
+
+**Why it's unique:** other projects simulate signers. Ours are real, recovered from chain data, and the result is reported honestly.
 
 ### USP 4 · Ledger Pairing: "Every coin out must have a coin in"
 
