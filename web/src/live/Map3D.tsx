@@ -85,7 +85,7 @@ function Scene({ data, n, selected, onSelect, spin }: Props) {
       ))}
       {hasVoid && (
         <mesh position={VOID}><icosahedronGeometry args={[0.38, 2]} /><meshBasicMaterial color="#ff6a3d" toneMapped={false} />
-          <Html position={[0, 0.8, 0]} center style={{ pointerEvents: 'none' }}><span className="label" style={{ whiteSpace: 'nowrap', color: '#ff6a3d' }}>no deposit</span></Html></mesh>
+          <Html position={[0, 0.8, 0]} center style={{ pointerEvents: 'none' }}><span className="label" style={{ whiteSpace: 'nowrap', color: '#ff6a3d' }}>no deposit behind these = the hack</span></Html></mesh>
       )}
       <lineSegments ref={lines} geometry={geo}><lineBasicMaterial vertexColors transparent opacity={0.85} depthWrite={false} toneMapped={false} /></lineSegments>
       <instancedMesh ref={mesh} args={[undefined, undefined, data.events.length]} onClick={pick}>
