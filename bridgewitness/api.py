@@ -20,7 +20,10 @@ REPLAYS = {f: json.loads((ART / f"replay_{f}.json").read_text(encoding="utf-8"))
 METRICS = json.loads((ART / "metrics.json").read_text(encoding="utf-8"))
 
 app = FastAPI(title="BridgeWitness", version="3.0")
-app.add_middleware(CORSMiddleware, allow_origins=os.environ.get("BW_ALLOWED_ORIGIN", "*").split(","),
+_origins = [o.strip() for o in os.environ.get("BW_ALLOWED_ORIGIN", "*").split(",") if o.strip()]
+# Render passes a bare host name between services; turn it into an https origin.
+_origins = [o if o == "*" or o.startswith("http") else f"https://{o}" for o in _origins]
+app.add_middleware(CORSMiddleware, allow_origins=_origins,
                    allow_methods=["GET"], allow_headers=["*"])
 _live = {'at': 0, 'successful_at': 0, 'rows': [], 'error': None}
 _live_lock = asyncio.Lock()

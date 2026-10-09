@@ -1,4 +1,6 @@
-# Render blueprint: BridgeWitness API as a Docker web service (free plan, 512 MB; uses ~40 MB).
+# Render Blueprint: deploys the whole prototype (New -> Blueprint -> pick this repo).
+#   bridgewitness-api  Docker web service (free plan, 512 MB; uses about 40 MB). Serves replays, metrics, the live feed.
+#   bridgewitness-web  static site built from web/ (free). Falls back to its bundled replay files if the API is asleep.
 services:
   - type: web
     name: bridgewitness-api
@@ -9,4 +11,24 @@ services:
     healthCheckPath: /health
     envVars:
       - key: BW_ALLOWED_ORIGIN
-        value: https://YOUR-VERCEL-APP.vercel.app   # set to the deployed Vercel URL (comma-separate several)
+        fromService:
+          type: web
+          name: bridgewitness-web
+          property: host
+
+  - type: web
+    name: bridgewitness-web
+    runtime: static
+    rootDir: web
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_BW_API
+        fromService:
+          type: web
+          name: bridgewitness-api
+          property: host
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
