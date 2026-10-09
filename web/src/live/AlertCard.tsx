@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Ev, Replay } from './data';
-import { FEATURE_TEXT, RULE_TEXT, SIGNAL_NAME, TYPE_SHORT, human, txUrl } from './data';
+import { FEATURE_ABSENT, FEATURE_TEXT, RULE_SENTENCE, RULE_TEXT, SIGNAL_NAME, TYPE_SHORT, human, txUrl } from './data';
 import { duration, usd, utc } from '../lib/format';
 
 const fmtP = (p: number | null | undefined) => (p == null ? '—' : p < 0.001 ? '< 0.001' : p.toFixed(3));
@@ -30,6 +30,7 @@ export function AlertCard({ e, data }: { e: Ev | null; data: Replay }) {
         <p className="dim">{e.type_text}</p>
         {e.precedent && e.precedent !== '—' && <p className="ac-prec">Looks most like: <b>{e.precedent}</b></p>}
       </div>}
+      <Verdict e={e} />
       <dl className="ac-facts">
         <dt>Payout</dt><dd className="mono">{e.symbol} {human(e.amount, e.decimals)} · {e.usd == null ? 'unpriced' : usd(e.usd)} · {utc(e.ts).slice(11, 19)}</dd>
         <dt>Deposit</dt><dd>{e.status === 'violation' ? <b className="bad">{RULE_TEXT[e.rule ?? ''] ?? e.rule}</b> : <span className="ok">Found, made {e.delay != null ? duration(e.delay) : ''} earlier</span>}</dd>
@@ -46,6 +47,35 @@ export function AlertCard({ e, data }: { e: Ev | null; data: Replay }) {
   );
 }
 
+// A reason only counts as present above these values (ID jump > ~1,000; fitted spread > 0.3).
+const LOW: Record<string, number> = { id_jump_log: 6.9, hawkes_n: 0.3 };
+
+type Mark = 'bad' | 'warn' | 'ok' | 'na';
+const ICON: Record<Mark, string> = { bad: '✗', warn: '!', ok: '✓', na: '–' };
+
+/** Plain verdict: one sentence, then each check as pass / fail. */
+function Verdict({ e }: { e: Ev }) {
+  const s = e.signals;
+  const amt = `${e.symbol} ${human(e.amount, e.decimals)}${e.usd == null ? '' : ` (${usd(e.usd)})`}`;
+  const line = e.status === 'violation'
+    ? <><b>{amt}</b> was paid out {RULE_SENTENCE[e.rule ?? ''] ?? 'breaking the deposit rule'}.</>
+    : <><b>{amt}</b> is backed by a deposit but looks unusual next to normal traffic. Advice only, no accusation.</>;
+  const rows: [Mark, string, string][] = [
+    e.status === 'violation' ? ['bad', 'Deposit check', e.rule === 'missing_source_deposit' && e.search ? `no deposit found (${e.search.deposits_checked.toLocaleString()} earlier deposits searched)` : RULE_TEXT[e.rule ?? ''] ?? 'rule broken'] : ['ok', 'Deposit check', 'a matching deposit was found'],
+    s?.id_jump && s.id_jump > 1000 ? ['bad', 'Withdrawal ID', `jumped ${s.id_jump.toLocaleString()} past the last issued ID`]
+      : s?.id_reused ? ['bad', 'Message ID', 'already used by an earlier payout'] : ['ok', 'Message / withdrawal ID', 'in the normal range'],
+    s?.signers ? ['ok', 'Signers', `${s.signers.length} real validator signatures recovered; this group is normal`] : ['na', 'Signers', 'this bridge has no signer data'],
+    s && s.cluster_size > 1 ? [s.hawkes_n >= 0.9 ? 'bad' : 'warn', 'Spread', `${s.cluster_size} near-identical payouts · spread ${s.hawkes_n.toFixed(2)}${s.hawkes_n >= 0.9 ? ' (self-sustaining)' : ''}`] : ['ok', 'Spread', 'isolated payout, no copycats'],
+    e.p_comb != null && e.p_comb < 0.01 ? ['warn', 'Statistics', `unusual vs normal traffic (p ${fmtP(e.p_comb)})`] : ['ok', 'Statistics', 'within normal traffic'],
+  ];
+  return (
+    <div className="ac-verdict">
+      <p>{line}</p>
+      <ul>{rows.map(([m, k, v]) => <li key={k} className={`vd--${m}`}><i>{ICON[m]}</i><b>{k}</b><span>{v}</span></li>)}</ul>
+    </div>
+  );
+}
+
 function Why({ e }: { e: Ev }) {
   const s = e.signals;
   return (
@@ -54,7 +84,7 @@ function Why({ e }: { e: Ev }) {
       {e.reasons && e.reasons.length > 0 && <>
         <span className="label">What pushed this alert up</span>
         <ul className="ac-reasons">{e.reasons.map((r) => (
-          <li key={r.feature}><span>{FEATURE_TEXT[r.feature] ?? r.feature}</span><i style={{ width: `${Math.min(100, r.push * 12)}%` }} /></li>))}</ul>
+          <li key={r.feature}><span>{(r.value <= (LOW[r.feature] ?? 0) && FEATURE_ABSENT[r.feature]) || (FEATURE_TEXT[r.feature] ?? r.feature)}</span><i style={{ width: `${Math.min(100, r.push * 12)}%` }} /></li>))}</ul>
       </>}
       <span className="label">How unusual is each sign? (smaller = rarer)</span>
       <table className="ac-p"><tbody>

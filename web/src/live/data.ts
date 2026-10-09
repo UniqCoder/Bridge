@@ -48,7 +48,7 @@ export type Replay = { feed: string; label: string; window: [number, number]; ro
 export const FEEDS = [
   { id: 'nomad', label: 'Nomad hack, 2022', note: 'real · hundreds of copycats' },
   { id: 'ronin', label: 'Ronin hack, 2022', note: 'real · stolen validator keys' },
-  { id: 'simulated', label: 'Practice attacks', note: 'made-up attacks, fixed seed' },
+  { id: 'simulated', label: 'Attack Lab', note: 'launch an attack yourself' },
   { id: 'live', label: 'Live bridge', note: 'a real bridge, right now' },
 ] as const;
 export type FeedId = (typeof FEEDS)[number]['id'];
@@ -157,6 +157,19 @@ export const FEATURE_TEXT: Record<string, string> = {
   id_jump_log: 'withdrawal ID is far beyond the observed source IDs', cluster_log: 'one of many near-identical releases',
   hawkes_n: 'cluster timing fits a spreading pattern', midas: 'the same message is repeating fast',
   log_usd: 'very large amount', value_vs_route: 'large compared with a normal day on this route', signed: 'carried real validator signatures',
+};
+// Wording when a reason pushed the alert because the sign was ABSENT (value 0), e.g. no signatures rules out key theft.
+export const FEATURE_ABSENT: Record<string, string> = {
+  signed: 'no validator signatures (rules out stolen keys)', hawkes_n: 'no spreading pattern yet',
+  id_reused: 'message ID not used before', cluster_log: 'not part of a copycat cluster', midas: 'message not repeating',
+  unbacked: 'a deposit backs this release', amount_mismatch: 'amount matches its deposit', recipient_mismatch: 'recipient matches its deposit',
+  id_jump_log: 'withdrawal ID in the normal range',
+};
+export const RULE_SENTENCE: Record<string, string> = {
+  missing_source_deposit: 'with no matching deposit on the source chain',
+  message_replayed: 'using a deposit that was already paid out once',
+  amount_mismatch: 'for a different amount than was deposited',
+  recipient_mismatch: 'to someone other than the deposit’s recipient',
 };
 export const RULE_TEXT: Record<string, string> = {
   missing_source_deposit: 'No matching authorization in the supplied dataset history',

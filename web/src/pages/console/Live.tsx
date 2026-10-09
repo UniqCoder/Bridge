@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AlertCard } from '../../live/AlertCard';
 import { LiveGraph } from '../../live/LiveGraph';
-import { Map3D } from '../../live/Map3D';
 import { CHARTS, Timeline } from '../../live/Timelines';
 import { FEEDS, TYPE_SHORT, human, useClock, useLive, useReplayData, useView, type Ev, type FeedId, type Replay } from '../../live/data';
 import { usd, utc } from '../../lib/format';
 import '../../live/live.css';
+
+const Map3D = lazy(() => import('../../live/Map3D').then((m) => ({ default: m.Map3D })));
 
 const SPEEDS = [60, 300, 1000, 3000];
 
@@ -49,84 +50,140 @@ function Console({ data }: { data: Replay }) {
   const v = useView(data, t)!;
   const [selected, setSelected] = useState<string | null>(null);
   const [view3d, setView3d] = useState(true);
+  const [showMap, setShowMap] = useState(false);
+  const [pausedAt, setPausedAt] = useState<number | null>(null);
   const startAt = useStartParam();
   const [tour, setTour] = useState(!startAt);
   useEffect(() => { if (startAt) setT(Math.min(Math.max(startAt, data.window[0]), data.window[1])); }, [data, startAt]);
-  const firstAttack = useMemo(() => data.events.find((e) => e.truth === 'attack')?.ts, [data]);
+  const attacks = useMemo(() => data.events.filter((e) => e.kind === 'withdrawal' && e.truth === 'attack'), [data]);
+  const firstAttack = attacks[0]?.ts;
   const byId = useMemo(() => new Map(data.events.map((e) => [e.id, e])), [data]);
+  const alertsBefore = (ts: number) => data.events.filter((e) => e.kind === 'withdrawal' && e.ts <= ts && e.level && e.level !== 'none').length;
 
-  // Guided flow: stop on the first alert and open it, so a viewer sees the moment the deposit rule breaks.
-  const paused = useRef(false);
-  useEffect(() => { paused.current = false; setSelected(null); }, [data]);
+  // Guided flow: stop on the next alert after a launch and open it, so a viewer sees the moment the deposit rule breaks.
+  const armed = useRef<number | null>(0);
+  useEffect(() => { armed.current = 0; setSelected(null); setPausedAt(null); }, [data]);
   useEffect(() => {
-    if (tour && !paused.current && v.alerts.length > 0) {
-      paused.current = true; setPlaying(false); setSelected(v.alerts[0].id);
-      setT(v.alerts[0].ts);
+    if (tour && armed.current != null && v.alerts.length > armed.current) {
+      const hit = v.alerts[armed.current];
+      armed.current = null; setPlaying(false); setSelected(hit.id); setT(hit.ts);
     }
   }, [v.alerts.length, tour]);
+  const launch = (ts: number) => { const at = Math.max(data.window[0], ts - 120); armed.current = alertsBefore(at); setPausedAt(null); setSelected(null); setT(at); setPlaying(true); };
 
   const top = selected ? byId.get(selected) ?? null : v.alerts[v.alerts.length - 1] ?? null;
   const progress = (t - data.window[0]) / (data.window[1] - data.window[0]);
-  const m = data.metrics;
   const nNow = v.last?.hawkes_n ?? 0;
   const suspicious = v.alerts.length - v.exploits.length;
+  const caught = v.exploits.filter((e) => e.truth === 'attack').length;
+  const seenAttacks = v.withdrawals.filter((e) => e.truth === 'attack').length;
+
+  // Attack Lab: one button per practice scenario (attacks and honest controls).
+  const scenarios = useMemo(() => {
+    const m = new Map<string, { ts: number; attack: boolean }>();
+    for (const e of data.events) if (e.scenario && !m.has(e.scenario)) m.set(e.scenario, { ts: e.ts, attack: e.truth === 'attack' });
+    return [...m.entries()].sort((x, y) => Number(y[1].attack) - Number(x[1].attack));
+  }, [data]);
 
   return (
     <>
-      <details className="howto" open={!playing && v.n < 3}>
-        <summary>How to read this page</summary>
-        <ol>
-          <li><b>Press Play.</b> Every payout on the destination chain is checked against the deposits made on the source chain.</li>
-          <li><b>It stops at the first alert.</b> Green dots are payouts with a deposit behind them; copper dots have none.</li>
-          <li><b>Click Why or Check it</b> in the alert card to see the reasons, and try the check yourself.</li>
-        </ol>
-      </details>
+      {scenarios.length > 0 && <section className="plate lab">
+        <span className="label">Attack Lab · pick one, watch it get caught</span>
+        <div className="lab-btns">{scenarios.map(([name, sc]) => (
+          <button key={name} className={`btn btn--sm ${sc.attack ? '' : 'btn--line'}`} onClick={() => launch(sc.ts)} title={sc.attack ? 'Launch this attack' : 'Honest traffic: should raise no exploit alert'}>
+            {sc.attack ? '▶ ' : ''}{name}</button>))}</div>
+      </section>}
 
       <div className="live-transport plate">
-        <button className="btn btn--sm" onClick={() => { if (t >= data.window[1]) { setT(data.window[0]); paused.current = false; setSelected(null); } setPlaying((p) => !p); }} aria-label={playing ? 'Pause' : 'Play'}>{playing ? 'Pause' : t >= data.window[1] ? 'Replay' : 'Play'}</button>
+        <button className="btn btn--sm" onClick={() => { if (t >= data.window[1]) { setT(data.window[0]); armed.current = 0; setSelected(null); setPausedAt(null); } setPlaying((p) => !p); }} aria-label={playing ? 'Pause' : 'Play'}>{playing ? 'Pause' : t >= data.window[1] ? 'Replay' : 'Play'}</button>
         <div className="row" style={{ gap: 4 }} title="Replay speed">
           {SPEEDS.map((s) => <button key={s} className="btn btn--line btn--sm" aria-pressed={speed === s} onClick={() => setSpeed(s)}>{s}×</button>)}
         </div>
-        {firstAttack && <button className="btn btn--line btn--sm" onClick={() => { setT(firstAttack - 180); setPlaying(true); }}>Skip to the attack</button>}
+        {firstAttack && !scenarios.length && <button className="btn btn--sm btn--hot" onClick={() => launch(firstAttack)}>▶ Run the attack</button>}
         <input className="live-scrub" type="range" min={data.window[0]} max={data.window[1]} value={Math.floor(t)} aria-label="Replay time"
           onChange={(e) => setT(+e.target.value)} style={{ ['--p' as string]: `${progress * 100}%` }} />
         <span className="mono live-clock">{utc(t).slice(5, 19)}</span>
-        <label className="row small dim" style={{ gap: 6 }}><input type="checkbox" checked={tour} onChange={(e) => setTour(e.target.checked)} /> stop at the first alert</label>
+        <label className="row small dim" style={{ gap: 6 }}><input type="checkbox" checked={tour} onChange={(e) => setTour(e.target.checked)} /> stop at the next alert</label>
       </div>
 
       <div className="live-stats">
         <Stat k="Payouts checked" v={v.withdrawals.length.toLocaleString()} />
         <Stat k="Backed by a deposit" v={usd(v.backed)} tone="ok" />
         <Stat k="No deposit behind it" v={usd(v.unbacked)} tone={v.unbacked > 0 ? 'bad' : undefined} />
-        <Stat k="Exploit alerts" v={String(v.exploits.length)} tone={v.exploits.length ? 'bad' : undefined} />
+        <Stat k="Exploit alerts" v={String(v.exploits.length)} tone={v.exploits.length ? 'bad' : undefined} sub={seenAttacks ? `${caught} of ${seenAttacks} attack payouts so far` : undefined} />
         <Stat k="Suspicious (advice only)" v={String(suspicious)} tone={suspicious ? 'warn' : undefined} />
         <Stat k="Estimated spread" v={nNow.toFixed(2)} tone={nNow >= 1 ? 'warn' : undefined} sub={nNow >= 1 ? 'strong fitted spread' : nNow > 0.3 ? 'cluster building' : 'quiet'} />
       </div>
 
-      <div className="live-main">
-        <section className="plate live-graph">
-          <header className="plate-head"><span className="label">Where the money goes · {data.label}</span>
-            <span className="seg" role="tablist" aria-label="Graph style"><button aria-selected={view3d} onClick={() => setView3d(true)}>3D map</button><button aria-selected={!view3d} onClick={() => setView3d(false)}>Network</button></span>
-            <span className="legend"><i className="lg-ok" />payout with a deposit <i className="lg-bad" />payout with no deposit <i className="lg-warn" />suspicious <i className="lg-cl" />copycat cluster <i className="lg-src" />source chain <i className="lg-vault" />bridge vault</span></header>
-          {view3d ? <Map3D data={data} n={v.n} selected={top?.id ?? null} onSelect={setSelected} spin={!playing} /> : <LiveGraph data={data} n={v.n} selected={top?.id ?? null} onSelect={setSelected} />}
-        </section>
-        <aside className="live-side">
+      <div className="mon-main">
+        <AlertQueue alerts={v.alerts} selected={top?.id ?? null} onSelect={setSelected} />
+        <div className="mon-analysis">
+          {!top && <p className="hint">Press <b>{scenarios.length ? 'an Attack Lab button' : '▶ Run the attack'}</b>. Every payout is checked against the deposits behind it, and the replay stops on the first alert.</p>}
           <AlertCard e={top} data={data} />
-          <AlertQueue alerts={v.alerts} selected={top?.id ?? null} onSelect={setSelected} />
-        </aside>
+          {v.exploits.length > 0 && <PauseRoute t={t} pausedAt={pausedAt} attacks={top?.scenario ? attacks.filter((a) => a.scenario === top.scenario) : attacks} onPause={() => { setPausedAt(t); setPlaying(false); }} onResume={() => setPausedAt(null)} />}
+        </div>
       </div>
+
+      <HeadToHead data={data} caught={caught} seen={seenAttacks} />
 
       <div className="live-tl plate">{CHARTS.map((c, i) => <Timeline key={c.title} data={data} t={t} spec={c} idx={i} />)}</div>
 
-      <section className="plate summary">
-        <header className="plate-head"><span className="label">This replay in numbers</span><Link className="small" to="/console/results">All results →</Link></header>
-        <div className="plate-body small">
-          <p><b>{m.attack_flagged_exploit} of {m.attack_releases}</b> attack payouts were labelled “exploit”, and <b>{m.normal_false_exploit}</b> honest payouts ever were.</p>
-          <p>On {m.heldout_days} days of normal traffic the models had never seen ({m.heldout_normal.toLocaleString()} payouts) there were <b>{m.heldout_false_alarms}</b> statistical false alarm{m.heldout_false_alarms === 1 ? '' : 's'}.</p>
-          <p className="dim">Statistics alone, with the deposit rule switched off, flag {m.stat_alarms_on_attack} of {m.attack_releases} attack payouts{m.max_cluster > 1 ? `; the biggest copycat cluster reached ${m.max_cluster}` : ''}. The deposit rule is what makes the final call.</p>
-        </div>
-      </section>
+      <details className="plate mapbox" onToggle={(e) => setShowMap((e.target as HTMLDetailsElement).open)}>
+        <summary className="plate-head"><span className="label">Money flow map · {data.label}</span><span className="dim small">open to see deposits and payouts as a graph</span></summary>
+        {showMap && <section className="live-graph">
+          <header className="plate-head">
+            <span className="seg" role="tablist" aria-label="Graph style"><button aria-selected={!view3d} onClick={() => setView3d(false)}>Network</button><button aria-selected={view3d} onClick={() => setView3d(true)}>3D map</button></span>
+            <span className="legend"><i className="lg-ok" />payout with a deposit <i className="lg-bad" />payout with no deposit <i className="lg-warn" />suspicious <i className="lg-cl" />copycat cluster</span></header>
+          <Suspense fallback={<div className="label">Loading…</div>}>
+            {view3d ? <Map3D data={data} n={v.n} selected={top?.id ?? null} onSelect={setSelected} spin={!playing} /> : <LiveGraph data={data} n={v.n} selected={top?.id ?? null} onSelect={setSelected} />}
+          </Suspense>
+        </section>}
+      </details>
     </>
+  );
+}
+
+/** Response action: what holding the route right now would keep in the bridge (an estimate from the replay). */
+function PauseRoute({ t, pausedAt, attacks, onPause, onResume }: { t: number; pausedAt: number | null; attacks: Ev[]; onPause: () => void; onResume: () => void }) {
+  const total = attacks.reduce((s, e) => s + (e.usd ?? 0), 0);
+  const at = pausedAt ?? t;
+  const lost = attacks.filter((e) => e.ts <= at).reduce((s, e) => s + (e.usd ?? 0), 0);
+  const kept = total - lost;
+  return (
+    <section className={`plate pause ${pausedAt ? 'is-paused' : ''}`}>
+      {pausedAt ? <>
+        <b>Route paused at {utc(pausedAt).slice(11, 19)}.</b>
+        <span>Kept in the bridge: <b className="ok mono">{usd(kept)}</b> of {usd(total)} ({total ? Math.round(kept / total * 1000) / 10 : 0}%) · already lost <b className="bad mono">{usd(lost)}</b></span>
+        <button className="btn btn--line btn--sm" onClick={onResume}>Undo</button>
+      </> : <>
+        <button className="btn btn--sm btn--hot" onClick={onPause}>⏸ Pause this route now</button>
+        <span>Would keep <b className="ok mono">{usd(kept)}</b> of the {usd(total)} this attack takes in total ({total ? Math.round(kept / total * 1000) / 10 : 0}%).</span>
+      </>}
+      <small className="dim">Estimate from the replay: assumes the attackers would not have changed course. Honest payouts on the route wait until it is resumed.</small>
+    </section>
+  );
+}
+
+const SHORT: Record<string, string> = { 'B1 whale > $1M': 'Big-transfer alarm (> $1M)', 'B2 volume z-score > 3': 'Volume-spike alarm', 'B3 message-id join': 'Match by message ID', 'BridgeWitness (exploit)': 'BridgeWitness' };
+/** Same stream, simpler detectors: how many attack payouts each catches and how many false alarms it raises. */
+function HeadToHead({ data, caught, seen }: { data: Replay; caught: number; seen: number }) {
+  const rows = (data.metrics.scorecard ?? []).filter((r) => SHORT[r.method]);
+  if (!rows.length) return null;
+  return (
+    <section className="plate h2h">
+      <header className="plate-head"><span className="label">Same attack, other detectors (whole replay)</span><Link className="small" to="/console/results">All results →</Link></header>
+      <div className="h2h-rows">{rows.map((r) => {
+        const [a, b] = r.attack_flagged.split('/').map(Number);
+        const us = r.method.startsWith('BridgeWitness');
+        return <div key={r.method} className={`h2h-row ${us ? 'is-us' : ''}`}>
+          <span>{SHORT[r.method]}</span>
+          <i><em style={{ width: `${b ? a / b * 100 : 0}%` }} /></i>
+          <b className="mono">{r.attack_flagged}</b>
+          <span className={`mono ${r.false_alerts ? 'bad' : 'ok'}`}>{r.false_alerts} false alarm{r.false_alerts === 1 ? '' : 's'}</span>
+        </div>;
+      })}</div>
+      {seen > 0 && <p className="dim small">Live so far: BridgeWitness has labelled <b>{caught}</b> of the <b>{seen}</b> attack payouts seen as exploits.</p>}
+    </section>
   );
 }
 

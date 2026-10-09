@@ -274,3 +274,8 @@
   .alert-side { grid-column: 2; }
   .alert-detail { padding-left: 14px; }
 }
+
+.subnav { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 20px; border-bottom: 1px solid var(--line); }
+.subnav a { padding: 5px 10px; border-radius: 6px; font-size: 13px; color: var(--muted, inherit); text-decoration: none; }
+.subnav a.active { background: var(--panel-2); color: var(--text); }
+.subnav ~ .console-page .pg-pills { display: none; }
