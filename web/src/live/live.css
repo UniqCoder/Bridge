@@ -91,3 +91,7 @@
   .live-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .live-graph { min-height: 380px; } .lg-canvas { min-height: 340px; }
 }
+.plate-head .seg { display: inline-flex; border: 1px solid var(--line-2); }
+.plate-head .seg button { background: none; border: 0; color: var(--text-2); padding: 4px 10px; font: 12px var(--sans); cursor: pointer; }
+.plate-head .seg button + button { border-left: 1px solid var(--line-2); }
+.plate-head .seg button[aria-selected='true'] { background: var(--text); color: var(--bg); font-weight: 600; }

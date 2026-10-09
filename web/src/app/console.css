@@ -18,7 +18,7 @@
   position: sticky; top: 0; z-index: 9; display: flex; align-items: center; justify-content: space-between; gap: 16px;
   height: 56px; padding: 0 20px; border-bottom: 1px solid var(--line); background: color-mix(in oklab, var(--bg) 92%, transparent);
 }
-.statusbar-title { font: 500 15px var(--display); letter-spacing: -0.01em; white-space: nowrap; }
+.statusbar-title { font: 600 15px var(--display); letter-spacing: -0.01em; white-space: nowrap; }
 .statusbar-chains { display: flex; gap: 20px; }
 .wm { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .clock { font-size: 12px; white-space: nowrap; }
@@ -178,7 +178,7 @@
 .stairs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .stairs li { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); font-size: 13px; }
 .model { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 40px; }
-.model-line { font: 400 clamp(20px, 2.2vw, 30px)/1.15 var(--display); letter-spacing: -0.02em; }
+.model-line { font: 600 clamp(20px, 2.2vw, 30px)/1.15 var(--display); letter-spacing: -0.02em; }
 .confusion { display: grid; grid-template-columns: auto 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); }
 .confusion > * { background: var(--panel); padding: 12px; }
 .cm { font-size: clamp(26px, 3vw, 44px); letter-spacing: -0.03em; }
@@ -263,7 +263,7 @@
 .alert--rule .alert-risk { color: var(--violation); }
 .alert--advisory .alert-risk { color: var(--text-2); }
 .alert-risk--sm { font-size: 18px; color: var(--violation); }
-.alert-type { font: 500 14px var(--display); letter-spacing: -0.01em; }
+.alert-type { font: 600 14px var(--display); letter-spacing: -0.01em; }
 .reason { font: 500 9.5px var(--mono); font-stretch: 87.5%; padding: 1px 6px; border: 1px solid var(--line-2); color: var(--text-2); }
 .reason--rule { color: #ff8a63; border-color: color-mix(in oklab, var(--violation) 40%, transparent); }
 .alert-detail { display: grid; gap: 12px; padding: 4px 14px 16px 84px; }

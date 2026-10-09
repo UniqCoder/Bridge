@@ -10,6 +10,10 @@
     "data": "node -e \"const fs=require('fs');fs.mkdirSync('public/data',{recursive:true});for(const f of ['nomad','ronin','simulated'])fs.copyFileSync('../bridgewitness/artifacts/replay_'+f+'.json','public/data/replay_'+f+'.json');fs.copyFileSync('../bridgewitness/artifacts/metrics.json','public/data/metrics.json')\""
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
     "framer-motion": "11.11.17",
     "graphology": "0.25.4",
     "graphology-layout-forceatlas2": "0.10.1",
@@ -18,11 +22,13 @@
     "react-dom": "18.3.1",
     "react-router-dom": "6.28.0",
     "sigma": "3.0.2",
+    "three": "^0.170.0",
     "uplot": "1.6.31"
   },
   "devDependencies": {
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
+    "@types/three": "^0.170.0",
     "@vitejs/plugin-react": "4.3.4",
     "typescript": "5.6.3",
     "vite": "5.4.11"

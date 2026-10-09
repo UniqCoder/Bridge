@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AlertCard } from '../../live/AlertCard';
 import { LiveGraph } from '../../live/LiveGraph';
+import { Map3D } from '../../live/Map3D';
 import { CHARTS, Timeline } from '../../live/Timelines';
 import { FEEDS, TYPE_SHORT, human, useClock, useLive, useReplayData, useView, type Ev, type FeedId, type Replay } from '../../live/data';
 import { usd, utc } from '../../lib/format';
@@ -46,6 +47,7 @@ function Console({ data }: { data: Replay }) {
   const [t, setT] = useClock(data.window, speed, playing);
   const v = useView(data, t)!;
   const [selected, setSelected] = useState<string | null>(null);
+  const [view3d, setView3d] = useState(true);
   const startAt = useStartParam();
   const [tour, setTour] = useState(!startAt);
   useEffect(() => { if (startAt) setT(Math.min(Math.max(startAt, data.window[0]), data.window[1])); }, [data, startAt]);
@@ -102,8 +104,9 @@ function Console({ data }: { data: Replay }) {
       <div className="live-main">
         <section className="plate live-graph">
           <header className="plate-head"><span className="label">Where the money goes · {data.label}</span>
+            <span className="seg" role="tablist" aria-label="Graph style"><button aria-selected={view3d} onClick={() => setView3d(true)}>3D map</button><button aria-selected={!view3d} onClick={() => setView3d(false)}>Network</button></span>
             <span className="legend"><i className="lg-ok" />has a deposit <i className="lg-bad" />no deposit <i className="lg-warn" />suspicious <i className="lg-cl" />copycat cluster</span></header>
-          <LiveGraph data={data} n={v.n} selected={top?.id ?? null} onSelect={setSelected} />
+          {view3d ? <Map3D data={data} n={v.n} selected={top?.id ?? null} onSelect={setSelected} spin={!playing} /> : <LiveGraph data={data} n={v.n} selected={top?.id ?? null} onSelect={setSelected} />}
         </section>
         <aside className="live-side">
           <AlertCard e={top} data={data} />

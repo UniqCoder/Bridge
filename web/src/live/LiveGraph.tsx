@@ -27,7 +27,7 @@ export function LiveGraph({ data, n, selected, onSelect }: Props) {
     g.addNode('bridge', { label: 'Bridge vault', x: 0, y: 0, size: 16, color: C.bridge, fixed: true });
     g.addEdge('src', 'bridge', { size: 2, color: C.dep });
     const s = new Sigma(g, box.current!, {
-      renderLabels: true, labelColor: { color: C.ink }, labelSize: 11, labelFont: 'Martian Mono, monospace',
+      renderLabels: true, labelColor: { color: C.ink }, labelSize: 11, labelFont: 'Geist Mono Variable, monospace',
       labelRenderedSizeThreshold: 9, defaultEdgeType: 'arrow', allowInvalidContainer: true, zIndex: true,
     });
     s.on('clickNode', ({ node }) => { const id = st.current?.byNode.get(node); if (id) sel.current(id); });

@@ -3,7 +3,7 @@ import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import type { Replay } from './data';
 
-const AX = { stroke: '#6b727d', grid: { stroke: '#1c1f24', width: 1 }, ticks: { stroke: '#23262c' }, font: '10px Martian Mono, monospace' };
+const AX = { stroke: '#6b727d', grid: { stroke: '#1c1f24', width: 1 }, ticks: { stroke: '#23262c' }, font: '10px Geist Mono Variable, monospace' };
 const SYNC = uPlot.sync('bw-live');
 
 type Spec = { title: string; note: string; series: { label: string; color: string; get: (k: Replay['ticks'][number]) => number; fill?: string; scale?: string }[];
@@ -47,7 +47,7 @@ export function Timeline({ data, t, spec, idx }: { data: Replay; t: number; spec
         const y = u.valToPos(hl.y, hl.scale ?? 'y', true);
         const ctx = u.ctx; ctx.save(); ctx.strokeStyle = '#ff6a3d'; ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(u.bbox.left, y); ctx.lineTo(u.bbox.left + u.bbox.width, y); ctx.stroke();
-        ctx.fillStyle = '#ff6a3d'; ctx.font = '10px Martian Mono, monospace'; ctx.fillText(hl.label, u.bbox.left + 6, y - 4); ctx.restore();
+        ctx.fillStyle = '#ff6a3d'; ctx.font = '10px Geist Mono Variable, monospace'; ctx.fillText(hl.label, u.bbox.left + 6, y - 4); ctx.restore();
       }] } : undefined,
     };
     const u = new uPlot(opts, [[]], el);

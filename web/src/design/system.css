@@ -27,9 +27,9 @@
   --moon: #c9a7ff;
   --local: #9db2c8;
 
-  --display: 'Unbounded', 'Arial Black', sans-serif;
-  --sans: 'Instrument Sans', system-ui, sans-serif;
-  --mono: 'Martian Mono', ui-monospace, monospace;
+  --display: 'Geist Variable', system-ui, sans-serif;
+  --sans: 'Geist Variable', system-ui, sans-serif;
+  --mono: 'Geist Mono Variable', ui-monospace, monospace;
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-camera: cubic-bezier(0.65, 0, 0.35, 1);
@@ -57,7 +57,7 @@ body {
 a { color: inherit; }
 button, input, select { font: inherit; color: inherit; }
 img, svg { display: block; }
-h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; letter-spacing: -0.025em; margin: 0; line-height: 1.04; }
+h1, h2, h3, h4 { font-family: var(--display); font-weight: 600; letter-spacing: -0.025em; margin: 0; line-height: 1.04; }
 p { margin: 0; }
 * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
 

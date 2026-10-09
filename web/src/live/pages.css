@@ -1,7 +1,7 @@
 /* Shared styles for the console pages: ideas, check-it-yourself, results, how-it-works. Oxide Vault tokens. */
-.pg { display: grid; gap: 22px; max-width: 1180px; margin: 0 auto; min-width: 0; padding-bottom: 48px; }
+.pg { display: grid; gap: 22px; max-width: none; margin: 0; min-width: 0; padding-bottom: 48px; }
 .pg-head { display: grid; gap: 12px; max-width: 820px; }
-.pg-title { font: 500 clamp(24px, 3.2vw, 40px)/1.12 var(--display); letter-spacing: -0.02em; margin: 0; }
+.pg-title { font: 600 clamp(24px, 3vw, 38px)/1.12 var(--display); letter-spacing: -0.02em; margin: 0; }
 .pg-lede { color: var(--text-2); font-size: 16px; line-height: 1.6; margin: 0; max-width: 70ch; }
 .pg-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .pg-pills a { display: inline-flex; gap: 8px; align-items: center; padding: 8px 14px; border: 1px solid var(--line-2); color: var(--text); text-decoration: none; font-size: 13px; }
@@ -17,9 +17,13 @@
 .mono { font-family: var(--mono); } .brk { overflow-wrap: anywhere; }
 
 /* One idea = copy on the left, a working demo on the right */
-.usp { display: grid; grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.5fr); gap: clamp(20px, 3vw, 44px); padding: 32px 0; border-top: 1px solid var(--line); scroll-margin-top: 16px; }
-.usp-copy { display: grid; gap: 12px; align-content: start; }
-.usp-copy h3 { font: 500 clamp(20px, 2.2vw, 28px) var(--display); margin: 0; letter-spacing: -0.01em; }
+.usp { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 32px 0; border-top: 1px solid var(--line); scroll-margin-top: 16px; }
+.usp-copy { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: 8px clamp(20px, 3vw, 40px); align-items: start; }
+.usp-copy h3, .usp-tag { grid-column: 2; } .usp-n { grid-row: 1 / span 2; }
+.usp-copy p { grid-column: 2 / span 1; }
+.usp-copy p + p { grid-column: 3; grid-row: 1 / span 3; }
+@media (max-width: 900px) { .usp-copy { grid-template-columns: auto minmax(0, 1fr); } .usp-copy p + p { grid-column: 2; grid-row: auto; } }
+.usp-copy h3 { font: 600 clamp(20px, 2.2vw, 28px) var(--display); margin: 0; letter-spacing: -0.01em; }
 .usp-copy p { color: var(--text-2); font-size: 14.5px; line-height: 1.6; margin: 0; }
 .usp-copy p b { color: var(--text); }
 .usp-n { font: 500 12px var(--mono); color: var(--bg); background: var(--verified); width: 26px; height: 26px; display: grid; place-items: center; }

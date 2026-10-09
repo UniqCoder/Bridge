@@ -220,7 +220,7 @@
 }
 
 /* ── Problem-statement sections ── */
-.tagline { font: 400 15px var(--display); letter-spacing: -0.01em; color: var(--text-2); }
+.tagline { font: 600 15px var(--display); letter-spacing: -0.01em; color: var(--text-2); }
 .t-lead b { color: var(--text); font-weight: 500; }
 .brief { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
 .brief li { display: grid; grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1.6fr) auto auto; gap: 18px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
