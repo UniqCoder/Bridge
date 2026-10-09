@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { NextStep } from '../../live/CaseBar';
 import { Seg } from './Usps';
 import { RULE_TEXT, SOURCE_CHAIN, TYPE_SHORT, human, txUrl, useReplayData, type Ev, type Replay } from '../../live/data';
 import { duration, usd, utc } from '../../lib/format';
@@ -13,16 +14,17 @@ export default function Evidence() {
   const [qs, setQs] = useSearchParams();
   const feed = (['nomad', 'ronin', 'simulated'].includes(qs.get('feed') ?? '') ? qs.get('feed') : 'nomad') as string;
   const { data } = useReplayData(feed);
-  const [sel, setSel] = useState<string | null>(null);
+  const [sel, setSel] = useState<string | null>(qs.get('case'));
   const [show, setShow] = useState<'flagged' | 'backed'>(qs.get('show') === 'backed' ? 'backed' : 'flagged');
   const list = useMemo(() => (data ? pick(data, show) : []), [data, show]);
-  useEffect(() => { setSel(null); }, [feed, show]);
-  const e = list.find((x) => x.id === sel) ?? list[0] ?? null;
+  useEffect(() => { setSel(qs.get('case')); }, [feed, show]);
+  const caseEv = sel && data ? data.events.find((x) => x.id === sel) : undefined;
+  const e = list.find((x) => x.id === sel) ?? caseEv ?? list[0] ?? null;
 
   return (
     <div className="pg">
       <header className="pg-head">
-        <span className="label">Check it yourself</span>
+        <span className="label">Step 5 of 5 · Verify it yourself</span>
         <h2 className="pg-title">Don't trust the alert. Check the money.</h2>
         <p className="pg-lede">Every payout on the destination chain must trace back to a deposit on the source chain. Pick a payout below and see exactly what we looked for, what we found, and try to cheat it.</p>
       </header>
@@ -43,6 +45,7 @@ export default function Evidence() {
           <Detail key={e.id} e={e} feed={feed} />
         </div>
       )}
+      <NextStep from="evidence" />
     </div>
   );
 }

@@ -3,10 +3,23 @@ import { Link } from 'react-router-dom';
 import { RULE_TEXT, SIGNAL_NAME, human, txUrl, useMetrics, useReplayData, type Ev, type Metrics, type Replay } from '../../live/data';
 import { usd, utc } from '../../lib/format';
 import '../../live/pages.css';
+import { NextStep, STEPS } from '../../live/CaseBar';
 
 const NUM = new Intl.NumberFormat('en-US');
 const usdShort = (v: number) => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(0)}k` : usd(v));
 const Wait = ({ what }: { what: string }) => <div className="demo-wait label">Loading {what}…</div>;
+
+// Plain-language framing shown first on each page (the technical demo stays below).
+const PLAIN: Record<string, { analogy: string; why: string }> = {
+  pairing: { analogy: 'Think of a cloakroom. Every coat handed out needs a ticket from a coat handed in. A payout with no deposit is a coat handed out with no ticket.',
+    why: 'Stolen keys can sign anything, but they cannot create a deposit that never happened. That is why this is the only check allowed to say “exploit”.' },
+  signers: { analogy: 'Think of a cheque that needs 5 of 9 bank managers to sign. We read the real signatures off the blockchain to see who signed.',
+    why: 'In Ronin the thieves held 5 real keys, so the signers looked normal. The giveaway was the cheque number: a withdrawal ID about 936,000 past any the bridge had issued.' },
+  contagion: { analogy: 'Think of an epidemic. One person finds the bug, then others copy the exact same transaction with their own address.',
+    why: 'Copycat clusters and a spread number show whether an attack is fading or feeding itself (above about 1), which tells a team how urgently to act.' },
+  budget: { analogy: 'Think of a smoke alarm you can trust: we tested how often it goes off on normal days, and we report that number.',
+    why: 'Statistics can only say “suspicious”. Only a broken deposit rule can say “exploit”, so a scary-looking number alone never accuses anyone.' },
+};
 
 const IDEAS = [
   { to: 'budget', name: 'Accusation Budget', tag: 'False alarms, measured', answers: 'a risk-scored alert',
@@ -50,27 +63,24 @@ export default function Usps({ n }: { n: 1 | 2 | 3 | 4 }) {
   return (
     <div className="pg">
       <header className="pg-head">
-        <span className="label">Idea {n} of 4 · running on real data</span>
-        <h2 className="pg-title">{idea.name}: {idea.tag.toLowerCase().replace(/\?$/, '')}{idea.tag.endsWith('?') ? '?' : '.'}</h2>
-        <p className="pg-lede">Challenge requirement it answers: <b>{idea.answers}</b>.</p>
-        <nav className="pg-pills" aria-label="The four ideas">
-          {IDEAS.map((x, i) => <Link key={x.to} to={`/console/${x.to}`} aria-current={i + 1 === n ? 'page' : undefined} className={i + 1 === n ? 'is-on' : ''}><b>{i + 1}</b>{x.name}</Link>)}
-        </nav>
+        <span className="label">Step {STEPS.find((x) => x.to === idea.to)!.n} of 5 · {idea.name} · answers the challenge’s “{idea.answers}”</span>
+        <h2 className="pg-title">{STEPS.find((x) => x.to === idea.to)!.q}</h2>
+        <div className="plain"><p><b>In plain words.</b> {PLAIN[idea.to].analogy}</p><p><b>Why it matters.</b> {PLAIN[idea.to].why}</p></div>
       </header>
       <KeyStats n={n} m={m} />
       <Usp n={n} name={idea.name} tag={idea.tag} problem={idea.problem} how={idea.how}><Demo m={m} /></Usp>
+      <NextStep from={idea.to} />
     </div>
   );
 }
-function Usp({ n, name, tag, problem, how, children }: { n: number; name: string; tag: string; problem: string; how: string; children: ReactNode }) {
+function Usp({ n, name, tag, how, children }: { n: number; name: string; tag: string; problem: string; how: string; children: ReactNode }) {
   return (
     <section className="usp" id={`usp-${n}`}>
       <div className="usp-copy">
         <span className="usp-n">{n}</span>
         <h3>{name}</h3>
         <span className="usp-tag">{tag}</span>
-        <p><b>The problem.</b> {problem}</p>
-        <p><b>What we do.</b> {how}</p>
+        <p><b>How it works.</b> {how}</p>
       </div>
       <div className="usp-demo">{children}</div>
     </section>

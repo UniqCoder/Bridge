@@ -2,6 +2,8 @@ import { Suspense } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BookOpenText, ChartBar, MagnifyingGlass, Pulse } from '@phosphor-icons/react';
 import { Mark, Tag } from '../design/ui';
+import { CaseBar } from '../live/CaseBar';
+import '../live/live.css';
 import { API } from '../data';
 
 export const TABS: { to: string; label: string; glyph: JSX.Element; hint: string; short?: string; also?: string[] }[] = [
@@ -10,7 +12,6 @@ export const TABS: { to: string; label: string; glyph: JSX.Element; hint: string
   { to: 'results', label: 'Results', glyph: <ChartBar size={20} weight="light" />, hint: 'What we caught, what we got wrong, measured' },
 ];
 
-const INVESTIGATE = [['pairing', '1 · Deposit check'], ['signers', '2 · Signers'], ['contagion', '3 · Spread'], ['budget', '4 · False-alarm budget'], ['evidence', 'Verify the proof'], ['map', '3D money map']];
 
 export function ConsoleLayout() {
   const { pathname } = useLocation();
@@ -32,9 +33,7 @@ export function ConsoleLayout() {
           </div>
           <Tag kind={API ? 'live' : undefined}>{API ? 'live server' : 'built-in replay files'}</Tag>
         </header>
-        {tab?.to === 'pairing' && <nav className="subnav" aria-label="Investigate">
-          {INVESTIGATE.map(([to, l]) => <NavLink key={to} to={to}>{l}</NavLink>)}
-        </nav>}
+        {tab?.to === 'pairing' && !pathname.endsWith('/map') && <CaseBar />}
         <main className="console-page"><Suspense fallback={<div className="page-loading label">Loading…</div>}><Outlet /></Suspense></main>
       </div>
     </div>

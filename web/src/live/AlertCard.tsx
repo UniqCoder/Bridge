@@ -26,6 +26,7 @@ export function AlertCard({ e, data }: { e: Ev | null; data: Replay }) {
         </div>
       </header>
       <Verdict e={e} />
+      <Link className="btn btn--sm investigate" to={`/console/pairing?feed=${data.feed}&case=${encodeURIComponent(e.id)}`}>Investigate this alert step by step →</Link>
       <nav className="ac-tabs" role="tablist">
         {([['why', 'Detector details'], ['check', 'Deposit search'], ['stop', 'What-if: hold earlier']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} className="ac-tab" onClick={() => setTab(k)}>{l}</button>))}
