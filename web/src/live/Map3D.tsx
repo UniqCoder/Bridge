@@ -5,17 +5,23 @@ import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import type { Ev, Replay } from './data';
 
-// 3D map of one replay: deposits stand on the source plane, payouts on the destination plane.
-// A backed payout is joined to its deposit by a teal arc; a payout with no deposit hangs off the copper void.
-const X = 7, SEG = 10, GOLD = Math.PI * (3 - Math.sqrt(5));
+// 3D map of one replay. Left plane: deposits on the source chain. Right plane: payouts on the destination chain.
+// In the middle stands the bridge vault. A backed payout travels deposit -> vault -> payout (teal).
+// A payout with no deposit leaves the vault with nothing coming in (copper): that is the hack.
+const X = 8, H = 8, SEG = H * 2, GOLD = Math.PI * (3 - Math.sqrt(5));
 const TEAL = new THREE.Color('#2fd4b5'), COPPER = new THREE.Color('#ff6a3d'), BRASS = new THREE.Color('#e3b04b'), VIOLET = new THREE.Color('#c9a7ff'), INK = new THREE.Color('#e9ecef');
-const VOID: [number, number, number] = [-1.5, 5, 0];
+const VAULT = new THREE.Vector3(0, 5, 0);
 
 // Even sunflower spread over the whole plane, whatever the replay's size.
 function spot(i: number, total: number, side: -1 | 1): [number, number, number] {
-  const r = 5 * Math.sqrt((i * 0.6180339 + 0.1) % 1), a = i * GOLD * 1.7 + total;
-  return [side * X + Math.sin(a * 0.7) * 0.5, 5 + Math.cos(a) * r, Math.sin(a) * r];
+  const r = 4.8 * Math.sqrt((i * 0.6180339 + 0.1) % 1), a = i * GOLD * 1.7 + total;
+  return [side * X + Math.sin(a * 0.7) * 0.4, 5 + Math.cos(a) * r, Math.sin(a) * r];
 }
+
+const quad = (o: THREE.Vector3, a: THREE.Vector3, c: THREE.Vector3, b: THREE.Vector3, t: number) => {
+  const w = 1 - t;
+  return o.copy(a).multiplyScalar(w * w).addScaledVector(c, 2 * w * t).addScaledVector(b, t * t);
+};
 
 function build(data: Replay) {
   const ev = data.events, pos: [number, number, number][] = [], col: THREE.Color[] = [], size: number[] = [];
@@ -27,25 +33,28 @@ function build(data: Replay) {
     const dep = e.kind === 'deposit';
     pos.push(spot(dep ? dn++ : wn++, dep ? nd : nw, dep ? -1 : 1));
     col.push(dep ? VIOLET : e.status === 'violation' ? COPPER : e.level === 'suspicious' ? BRASS : TEAL);
-    size.push(dep ? 0.09 : e.status === 'violation' ? 0.075 : 0.11);
+    size.push(dep ? 0.1 : e.status === 'violation' ? 0.075 : 0.12);
   });
-  // One arc per event (deposits get a zero-length arc) so edges reveal in event order.
   const arcs = new Float32Array(ev.length * SEG * 6), ac = new Float32Array(ev.length * SEG * 6);
-  const ctl = new Float32Array(ev.length * 9);
-  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), p = new THREE.Vector3(), q = new THREE.Vector3();
+  const ctl = new Float32Array(ev.length * 15); // per payout: deposit, control, vault, control, payout
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c1 = new THREE.Vector3(), c2 = new THREE.Vector3(), p = new THREE.Vector3(), q = new THREE.Vector3();
   ev.forEach((e, i) => {
     if (e.kind !== 'withdrawal') return;
     const bad = e.status === 'violation';
-    const from = bad ? VOID : pos[byId.get(e.matched ?? '') ?? -1];
-    if (!from) return;
-    a.set(...from); b.set(...pos[i]); c.copy(a).add(b).multiplyScalar(0.5); c.y += 2 + (i % 5) * 0.15; ctl.set([a.x, a.y, a.z, c.x, c.y, c.z, b.x, b.y, b.z], i * 9);
+    const from = bad ? null : pos[byId.get(e.matched ?? '') ?? -1];
+    if (!bad && !from) return;
+    a.set(...(from ?? ([VAULT.x, VAULT.y, VAULT.z] as [number, number, number]))); b.set(...pos[i]);
+    c1.copy(a).add(VAULT).multiplyScalar(0.5); c1.y += 1.2 + (i % 5) * 0.12;
+    c2.copy(VAULT).add(b).multiplyScalar(0.5); c2.y += 1.2 + (i % 5) * 0.12;
+    ctl.set([a.x, a.y, a.z, c1.x, c1.y, c1.z, VAULT.x, VAULT.y, VAULT.z, c2.x, c2.y, c2.z, b.x, b.y, b.z], i * 15);
+    const k = bad ? COPPER : TEAL, f = bad ? 0.55 : 0.5;
     for (let s = 0; s < SEG; s++) {
-      const t0 = s / SEG, t1 = (s + 1) / SEG;
-      p.copy(a).multiplyScalar((1 - t0) ** 2).addScaledVector(c, 2 * (1 - t0) * t0).addScaledVector(b, t0 * t0);
-      q.copy(a).multiplyScalar((1 - t1) ** 2).addScaledVector(c, 2 * (1 - t1) * t1).addScaledVector(b, t1 * t1);
+      if (bad && s < H) continue; // nothing comes in
+      const first = s < H, t0 = (s % H) / H, t1 = ((s % H) + 1) / H;
+      const [s0, sc, s1] = first ? [a, c1, VAULT] : [VAULT, c2, b];
+      quad(p, s0, sc, s1, t0); quad(q, s0, sc, s1, t1);
       const o = (i * SEG + s) * 6;
       arcs.set([p.x, p.y, p.z, q.x, q.y, q.z], o);
-      const k = bad ? COPPER : TEAL, f = bad ? 0.55 : 0.5;
       ac.set([k.r * f, k.g * f, k.b * f, k.r * f, k.g * f, k.b * f], o);
     }
   });
@@ -55,7 +64,6 @@ function build(data: Replay) {
 function Scene({ data, n, selected, onSelect, spin }: Props) {
   const g = useMemo(() => build(data), [data]);
   const mesh = useRef<THREE.InstancedMesh>(null!);
-  const lines = useRef<THREE.LineSegments>(null!);
   const geo = useMemo(() => {
     const x = new THREE.BufferGeometry();
     x.setAttribute('position', new THREE.BufferAttribute(g.arcs, 3));
@@ -74,9 +82,7 @@ function Scene({ data, n, selected, onSelect, spin }: Props) {
     mesh.current.instanceMatrix.needsUpdate = true;
     mesh.current.instanceColor!.needsUpdate = true;
   }, [g, data, selected]);
-  useFrame(() => { mesh.current.count = n; geo.setDrawRange(0, n * SEG * 2); });
   const pick = (e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); if (e.instanceId !== undefined) { const ev: Ev = data.events[e.instanceId]; if (ev.kind === 'withdrawal') onSelect(ev.id); } };
-  const pts = useRef<THREE.Points>(null!);
   const ptsGeo = useMemo(() => {
     const x = new THREE.BufferGeometry();
     x.setAttribute('position', new THREE.BufferAttribute(new Float32Array(data.events.length * 3), 3));
@@ -85,38 +91,52 @@ function Scene({ data, n, selected, onSelect, spin }: Props) {
     x.setAttribute('color', new THREE.BufferAttribute(c, 3));
     return x;
   }, [data]);
-  const halo = useRef<THREE.Mesh>(null!), halo2 = useRef<THREE.Mesh>(null!);
+  const halo = useRef<THREE.Mesh>(null!), halo2 = useRef<THREE.Mesh>(null!), ring1 = useRef<THREE.Mesh>(null!), ring2 = useRef<THREE.Mesh>(null!);
   useFrame(({ clock }) => {
-    const T = clock.elapsedTime, pa = ptsGeo.getAttribute('position') as THREE.BufferAttribute;
+    mesh.current.count = n; geo.setDrawRange(0, n * SEG * 2);
+    const T = clock.elapsedTime, pa = ptsGeo.getAttribute('position') as THREE.BufferAttribute, k = g.ctl;
     for (let i = 0; i < data.events.length; i++) {
       if (i >= n || data.events[i].kind !== 'withdrawal') { pa.setXYZ(i, 0, -999, 0); continue; }
-      const u = (T * 0.35 + i * 0.137) % 1, w = 1 - u, o = i * 9, k = g.ctl;
-      pa.setXYZ(i, w * w * k[o] + 2 * w * u * k[o + 3] + u * u * k[o + 6], w * w * k[o + 1] + 2 * w * u * k[o + 4] + u * u * k[o + 7], w * w * k[o + 2] + 2 * w * u * k[o + 5] + u * u * k[o + 8]);
+      const bad = data.events[i].status === 'violation', o = i * 15;
+      let u = (T * 0.3 + i * 0.137) % 1;
+      if (bad) u = 0.5 + u * 0.5;
+      const second = u >= 0.5, t = second ? (u - 0.5) * 2 : u * 2, w = 1 - t, r = o + (second ? 6 : 0);
+      pa.setXYZ(i, w * w * k[r] + 2 * w * t * k[r + 3] + t * t * k[r + 6], w * w * k[r + 1] + 2 * w * t * k[r + 4] + t * t * k[r + 7], w * w * k[r + 2] + 2 * w * t * k[r + 5] + t * t * k[r + 8]);
     }
     pa.needsUpdate = true;
-    const pulse = 1 + Math.sin(T * 2.2) * 0.18;
-    if (halo.current) halo.current.scale.setScalar(pulse * 1.0);
-    if (halo2.current) halo2.current.scale.setScalar(1.6 + Math.sin(T * 1.3) * 0.35);
+    if (ring1.current) { ring1.current.rotation.y = T * 0.6; ring2.current.rotation.z = -T * 0.45; }
+    halo.current?.scale.setScalar(1 + Math.sin(T * 2.2) * 0.18);
+    halo2.current?.scale.setScalar(1.6 + Math.sin(T * 1.3) * 0.35);
   });
   const hasVoid = data.events.slice(0, n).some((e) => e.status === 'violation');
+  const glow = hasVoid ? '#ff6a3d' : '#9fe8d8';
   return (
     <>
       <color attach="background" args={['#08090b']} />
-      <fog attach="fog" args={['#08090b', 26, 60]} />
+      <fog attach="fog" args={['#08090b', 28, 64]} />
       {([-1, 1] as const).map((s) => (
         <group key={s} position={[s * X, 5, 0]}>
-          <lineSegments geometry={frame}><lineBasicMaterial color="#30343c" /></lineSegments>
-          <Html position={[0, -6.1, 0]} center style={{ pointerEvents: 'none' }}><span className="label" style={{ whiteSpace: 'nowrap', color: s < 0 ? '#c9a7ff' : '#8c9eff' }}>{s < 0 ? `${data.src} · deposits` : `${data.dst} · payouts`}</span></Html>
+          <mesh rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[11, 11]} /><meshBasicMaterial color={s < 0 ? '#c9a7ff' : '#8c9eff'} transparent opacity={0.045} side={THREE.DoubleSide} depthWrite={false} /></mesh>
+          <lineSegments geometry={frame}><lineBasicMaterial color={s < 0 ? '#6e5f8f' : '#4d5a99'} /></lineSegments>
+          <Html position={[0, 6.3, 0]} center style={{ pointerEvents: 'none' }}>
+            <div className="m3-tag" style={{ borderColor: s < 0 ? '#c9a7ff' : '#8c9eff', color: s < 0 ? '#c9a7ff' : '#8c9eff' }}>
+              <b>{s < 0 ? 'SOURCE CHAIN' : 'DESTINATION CHAIN'}</b><span>{s < 0 ? `${data.src} · where deposits are made` : `${data.dst} · where payouts are made`}</span>
+            </div>
+          </Html>
         </group>
       ))}
-      {hasVoid && (
-        <mesh position={VOID}><icosahedronGeometry args={[0.38, 2]} /><meshBasicMaterial color={[3.2, 0.9, 0.4]} toneMapped={false} />
-          <mesh ref={halo}><sphereGeometry args={[0.75, 24, 24]} /><meshBasicMaterial color="#ff6a3d" transparent opacity={0.22} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>
-          <mesh ref={halo2}><sphereGeometry args={[0.75, 24, 24]} /><meshBasicMaterial color="#ff6a3d" transparent opacity={0.08} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>
-          <Html position={[0, 0.8, 0]} center style={{ pointerEvents: 'none' }}><span className="label" style={{ whiteSpace: 'nowrap', color: '#ff6a3d' }}>no deposit behind these = the hack</span></Html></mesh>
-      )}
-      <lineSegments ref={lines} geometry={geo}><lineBasicMaterial vertexColors transparent opacity={0.6} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} /></lineSegments>
-      <points ref={pts} geometry={ptsGeo} frustumCulled={false}><pointsMaterial vertexColors size={0.16} sizeAttenuation transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></points>
+      <group position={VAULT.toArray()}>
+        <mesh><icosahedronGeometry args={[0.55, 3]} /><meshBasicMaterial color={[3, 3, 3.2]} toneMapped={false} /></mesh>
+        <mesh ref={ring1} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[1.5, 0.045, 12, 96]} /><meshBasicMaterial color={[2, 2, 2.2]} toneMapped={false} /></mesh>
+        <mesh ref={ring2}><torusGeometry args={[1.9, 0.03, 12, 96]} /><meshBasicMaterial color={[0.9, 2.2, 1.9]} toneMapped={false} /></mesh>
+        <mesh ref={halo}><sphereGeometry args={[1.1, 24, 24]} /><meshBasicMaterial color={glow} transparent opacity={0.16} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>
+        <mesh ref={halo2}><sphereGeometry args={[1.1, 24, 24]} /><meshBasicMaterial color={glow} transparent opacity={0.06} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>
+        <Html position={[0, -2.9, 0]} center style={{ pointerEvents: 'none' }}>
+          <div className="m3-tag m3-tag--vault"><b>BRIDGE VAULT</b><span>{hasVoid ? 'copper = paid out with no deposit in' : 'money in on the left, money out on the right'}</span></div>
+        </Html>
+      </group>
+      <lineSegments geometry={geo}><lineBasicMaterial vertexColors transparent opacity={0.6} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} /></lineSegments>
+      <points geometry={ptsGeo} frustumCulled={false}><pointsMaterial vertexColors size={0.16} sizeAttenuation transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></points>
       <Stars radius={60} depth={30} count={900} factor={2.2} fade speed={0.4} />
       <gridHelper args={[60, 60, '#1c2026', '#12151a']} position={[0, -1.2, 0]} />
       <instancedMesh ref={mesh} args={[undefined, undefined, data.events.length]} onClick={pick}>
@@ -132,8 +152,8 @@ type Props = { data: Replay; n: number; selected: string | null; onSelect: (id: 
 
 export function Map3D(p: Props) {
   return (
-    <div className="lg-canvas" role="img" aria-label={`3D map of ${p.data.label}: deposits on the left plane, payouts on the right; copper arcs are payouts with no deposit.`}>
-      <Canvas dpr={[1, 1.75]} camera={{ fov: 40, position: [16, 9, 28] }}><Scene {...p} /></Canvas>
+    <div className="lg-canvas" role="img" aria-label={`3D map of ${p.data.label}: deposits on the left plane, the bridge vault in the middle, payouts on the right; copper arcs are payouts with no deposit.`}>
+      <Canvas dpr={[1, 1.75]} camera={{ fov: 40, position: [17, 9, 30] }}><Scene {...p} /></Canvas>
     </div>
   );
 }

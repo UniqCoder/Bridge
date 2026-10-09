@@ -105,7 +105,7 @@ function Console({ data }: { data: Replay }) {
         <section className="plate live-graph">
           <header className="plate-head"><span className="label">Where the money goes · {data.label}</span>
             <span className="seg" role="tablist" aria-label="Graph style"><button aria-selected={view3d} onClick={() => setView3d(true)}>3D map</button><button aria-selected={!view3d} onClick={() => setView3d(false)}>Network</button></span>
-            <span className="legend"><i className="lg-ok" />has a deposit <i className="lg-bad" />no deposit <i className="lg-warn" />suspicious <i className="lg-cl" />copycat cluster</span></header>
+            <span className="legend"><i className="lg-ok" />payout with a deposit <i className="lg-bad" />payout with no deposit <i className="lg-warn" />suspicious <i className="lg-cl" />copycat cluster <i className="lg-src" />source chain <i className="lg-vault" />bridge vault</span></header>
           {view3d ? <Map3D data={data} n={v.n} selected={top?.id ?? null} onSelect={setSelected} spin={!playing} /> : <LiveGraph data={data} n={v.n} selected={top?.id ?? null} onSelect={setSelected} />}
         </section>
         <aside className="live-side">

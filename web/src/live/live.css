@@ -97,3 +97,7 @@
 .plate-head .seg button[aria-selected='true'] { background: var(--text); color: var(--bg); font-weight: 600; }
 .map-stage { display: grid; grid-template-rows: auto 1fr; min-height: calc(100vh - 230px); }
 .map-stage .lg-canvas { min-height: 560px; }
+.lg-src { background: #c9a7ff; } .lg-vault { background: #e9ecef; box-shadow: 0 0 0 2px var(--line-2); }
+.m3-tag { display: grid; gap: 2px; padding: 6px 10px; background: rgb(8 9 11 / 0.8); border: 1px solid var(--line-2); white-space: nowrap; text-align: center; }
+.m3-tag b { font: 600 11px var(--mono); letter-spacing: .12em; } .m3-tag span { font: 11px var(--sans); color: var(--text-2); }
+.m3-tag--vault { border-color: var(--text); color: var(--text); }
