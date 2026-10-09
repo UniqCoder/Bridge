@@ -19,7 +19,7 @@ def main():
         "ML1 conformal coverage >= 0.98 on test": m["ml1_delay_cqr"]["test_coverage"] >= 0.98,
         "Nomad: 382/382 attack releases are exploits": F["nomad"]["attack_flagged_exploit"] == 382,
         "Ronin: 2/2 attack releases are exploits": F["ronin"]["attack_flagged_exploit"] == 2,
-        "Simulated: 30/30 attack releases are exploits": F["simulated"]["attack_flagged_exploit"] == 30,
+        "Simulated: 38/38 attack releases are exploits (incl. 8-payout slow drain)": F["simulated"]["attack_flagged_exploit"] == F["simulated"]["attack_releases"] == 38,
         "No 'exploit' label on any normal or control release": all(F[f]["normal_false_exploit"] == 0 for f in F),
         "Observed held-out advisory false-alarm rate <= 0.2% on these replays": all(
             (F[f]["heldout_false_alarm_rate"] or 0) <= 2e-3 for f in F),

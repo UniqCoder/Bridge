@@ -65,7 +65,7 @@
    2000001
   ]
  },
- "generated_at": 1791577374,
+ "generated_at": 1791577522,
  "seed": 2410,
  "ecusum_threshold": 1000.0,
  "risk_policy": "rule severity + capped exposure + campaign + advisory surprise; not probability",
@@ -371,26 +371,26 @@
    "auth_heldout_median_p": 0.505
   },
   "simulated": {
-   "withdrawals": 18683,
-   "attack_releases": 30,
-   "attack_flagged_exploit": 30,
+   "withdrawals": 18691,
+   "attack_releases": 38,
+   "attack_flagged_exploit": 38,
    "normal_false_exploit": 0,
    "heldout_normal": 2126,
    "heldout_days": 9.5,
    "heldout_false_alarms": 2,
    "heldout_false_alarm_rate": 0.00094,
    "rules": {
-    "missing_source_deposit": 27,
+    "missing_source_deposit": 35,
     "message_replayed": 1,
     "amount_mismatch": 1,
     "recipient_mismatch": 1
    },
-   "stat_alarms_on_attack": 13,
-   "stat_first_alarm_after_s": 4916,
+   "stat_alarms_on_attack": 16,
+   "stat_first_alarm_after_s": 1500,
    "types_on_attack": {
     "copycat_swarm": 18,
+    "unbacked_release": 11,
     "message_replay": 6,
-    "unbacked_release": 3,
     "key_compromise": 1,
     "amount_mismatch": 1,
     "recipient_mismatch": 1
@@ -400,23 +400,23 @@
    "scorecard": [
     {
      "method": "B1 whale > $1M",
-     "attack_flagged": "1/30",
-     "first_alert_after_s": 3000,
-     "usd_before_first_alert": 250068.49629303356,
+     "attack_flagged": "1/38",
+     "first_alert_after_s": 4080,
+     "usd_before_first_alert": 251713.49629303356,
      "false_alerts": 7,
      "false_alerts_per_day": 0.74
     },
     {
      "method": "B2 volume z-score > 3",
-     "attack_flagged": "1/30",
-     "first_alert_after_s": 3000,
-     "usd_before_first_alert": 250068.49629303356,
+     "attack_flagged": "2/38",
+     "first_alert_after_s": 4080,
+     "usd_before_first_alert": 251713.49629303356,
      "false_alerts": 21,
      "false_alerts_per_day": 2.21
     },
     {
      "method": "B3 message-id join",
-     "attack_flagged": "27/30",
+     "attack_flagged": "35/38",
      "first_alert_after_s": 0,
      "usd_before_first_alert": 0.0,
      "false_alerts": 0,
@@ -424,7 +424,7 @@
     },
     {
      "method": "BridgeWitness (exploit)",
-     "attack_flagged": "30/30",
+     "attack_flagged": "38/38",
      "first_alert_after_s": 0,
      "usd_before_first_alert": 0.0,
      "false_alerts": 0,
@@ -432,7 +432,7 @@
     },
     {
      "method": "BridgeWitness (any alert)",
-     "attack_flagged": "30/30",
+     "attack_flagged": "38/38",
      "first_alert_after_s": 0,
      "usd_before_first_alert": 0.0,
      "false_alerts": 2,
@@ -440,36 +440,36 @@
     }
    ],
    "counterfactual": {
-    "attack_usd": 40781568.49629303,
-    "first_exploit_alert": 1646901000,
+    "attack_usd": 40786046.49629303,
+    "first_exploit_alert": 1646899920,
     "lanes": [
      {
       "latency_s": 0,
-      "hold_at": 1646901000,
-      "kept_usd": 40781568.49629303,
+      "hold_at": 1646899920,
+      "kept_usd": 40786046.49629303,
       "kept_pct": 100.0,
-      "legit_held": 33
+      "legit_held": 38
      },
      {
       "latency_s": 60,
-      "hold_at": 1646901060,
-      "kept_usd": 40531568.49629303,
-      "kept_pct": 99.4,
-      "legit_held": 33
+      "hold_at": 1646899980,
+      "kept_usd": 40785282.49629303,
+      "kept_pct": 100.0,
+      "legit_held": 38
      },
      {
       "latency_s": 300,
-      "hold_at": 1646901300,
-      "kept_usd": 40531568.49629303,
-      "kept_pct": 99.4,
-      "legit_held": 32
+      "hold_at": 1646900220,
+      "kept_usd": 40785282.49629303,
+      "kept_pct": 100.0,
+      "legit_held": 37
      },
      {
       "latency_s": 900,
-      "hold_at": 1646901900,
-      "kept_usd": 40531568.49629303,
-      "kept_pct": 99.4,
-      "legit_held": 31
+      "hold_at": 1646900820,
+      "kept_usd": 40785282.49629303,
+      "kept_pct": 100.0,
+      "legit_held": 34
      }
     ],
     "assumptions": [
@@ -483,7 +483,15 @@
    "auth_attack_p": [
     null,
     null,
+    null,
+    null,
+    null,
     0.0717,
+    null,
+    null,
+    null,
+    null,
+    null,
     null,
     null,
     null,
@@ -575,6 +583,15 @@
      },
      "types": {
       "message_replay": 1
+     }
+    },
+    "Slow drain": {
+     "truth": "attack",
+     "levels": {
+      "exploit": 8
+     },
+     "types": {
+      "unbacked_release": 8
      }
     },
     "Whale (control)": {
