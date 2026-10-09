@@ -186,6 +186,13 @@ table {{ width: 100%; border-collapse: collapse; font-size: 9.2pt; margin: 2mm 0
 out_html = ROOT / "docs" / "guide.html"
 out_html.write_text(HTML, encoding="utf-8")
 pdf = ROOT / "docs" / "BridgeWitness-Prototype-Guide.pdf"
-subprocess.run([EDGE, "--headless=new", "--disable-gpu", f"--user-data-dir={ROOT / 'docs' / 'shots' / 'prof2'}", "--no-pdf-header-footer",
+pdf.unlink(missing_ok=True)
+subprocess.run([EDGE, "--headless=new", f"--user-data-dir={ROOT / 'docs' / 'shots' / 'prof2'}", "--no-pdf-header-footer",
                 f"--print-to-pdf={pdf}", out_html.as_uri()], check=True, timeout=180)
+import time
+for _ in range(120):  # the Edge launcher returns before the PDF is written
+    if pdf.exists() and pdf.stat().st_size > 0:
+        time.sleep(2)
+        break
+    time.sleep(1)
 print(pdf, pdf.stat().st_size)

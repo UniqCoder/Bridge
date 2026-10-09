@@ -49,3 +49,7 @@
 .feat h3 { font: 600 17px var(--display); margin: 0; } .feat p { margin: 0; color: var(--text-2); font-size: 14.5px; line-height: 1.55; }
 @media (max-width: 1000px) { .feats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .feats { grid-template-columns: minmax(0, 1fr); } }
+.hero-viz { min-height: 480px; }
+.hero-viz > div:last-child { overflow: hidden !important; position: relative; }
+.hero-viz .lg-canvas { min-height: 420px; height: 100%; }
+.hero-viz .m3-hud { display: none; } .hero-viz .m3-tag span { display: none; }

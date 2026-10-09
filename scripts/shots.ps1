@@ -1,4 +1,4 @@
-# Headless full-page screenshots of every page (visual checks, PDF guide).
+﻿# Headless full-page screenshots of every page (visual checks, PDF guide).
 # usage: powershell -File scripts\shots.ps1 <outdir> [baseUrl]
 param([string]$Out, [string]$Base = "http://localhost:5180")
 $edge = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
@@ -17,6 +17,6 @@ $pages = [ordered]@{
 New-Item -ItemType Directory -Force $Out | Out-Null
 foreach ($k in $pages.Keys) {
   $path, $size = $pages[$k].Split("|")
-  Start-Process $edge -ArgumentList "--headless=new", "--user-data-dir=$Out\prof", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--hide-scrollbars", "--window-size=$size", "--virtual-time-budget=15000", "--screenshot=$Out\$k.png", "$Base$path" -Wait
+  Start-Process $edge -ArgumentList "--headless=new", "--user-data-dir=$Out\prof", "--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist", "--run-all-compositor-stages-before-draw", "--hide-scrollbars", "--window-size=$size", "--virtual-time-budget=25000", "--screenshot=$Out\$k.png", "$Base$path" -Wait
 }
 Get-ChildItem $Out\*.png | Select-Object Name, Length

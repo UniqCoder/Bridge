@@ -4,6 +4,7 @@ import { ButtonLink, Reveal } from '../../design/ui';
 import { Map3D } from '../../live/Map3D';
 import { useClock, useMetrics, useReplayData, useView } from '../../live/data';
 import { usd } from '../../lib/format';
+import '../../live/live.css';
 import '../../app/landing.css';
 
 const NUM = new Intl.NumberFormat('en-US');

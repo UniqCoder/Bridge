@@ -113,3 +113,5 @@
 .m3-cap { position: absolute; left: 12px; right: 12px; bottom: 12px; margin: 0; font: 600 12px var(--mono); letter-spacing: .04em; color: var(--verified); pointer-events: none; }
 .m3-cap.is-breach { color: var(--violation); }
 @media (max-width: 640px) { .m3-hud { grid-template-columns: minmax(0, 1fr); bottom: 40px; } .m3-hud i { display: none; } .m3-hud span { font-size: 8.5px; } .m3-cap { font-size: 10.5px; } }
+/* The 3D canvas fills its box by absolute positioning, so it never depends on a percentage height. */
+.m3 > div:first-child { position: absolute !important; inset: 0; }
