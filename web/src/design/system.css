@@ -170,7 +170,7 @@ a.hash:hover { color: var(--text); text-decoration: underline; text-underline-of
 
 /* ── Readout: an instrument value, not a KPI tile ── */
 .readout { display: grid; gap: 4px; }
-.readout-value { font: 400 clamp(22px, 2.4vw, 34px)/1 var(--mono); font-stretch: 87.5%; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.readout-value { font: 400 clamp(18px, 1.8vw, 24px)/1 var(--mono); font-stretch: 87.5%; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 .readout-value small { font-size: 0.45em; color: var(--text-3); margin-left: 4px; letter-spacing: 0; }
 
 /* ── Data table ── */

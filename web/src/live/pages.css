@@ -1,7 +1,7 @@
 /* Shared styles for the console pages: ideas, check-it-yourself, results, how-it-works. Oxide Vault tokens. */
 .pg { display: grid; gap: 22px; max-width: none; margin: 0; min-width: 0; padding-bottom: 48px; }
 .pg-head { display: grid; gap: 12px; max-width: 820px; }
-.pg-title { font: 600 clamp(22px, 2.4vw, 32px)/1.15 var(--display); letter-spacing: -0.02em; margin: 0; }
+.pg-title { font: 600 clamp(20px, 2vw, 28px)/1.2 var(--display); letter-spacing: -0.02em; margin: 0; }
 .pg-lede { color: var(--text-2); font-size: 16px; line-height: 1.6; margin: 0; max-width: 70ch; }
 .pg-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .pg-pills a.is-on { border-color: var(--verified); background: var(--verified-ink); }
@@ -50,7 +50,7 @@
 .step { display: grid; gap: 8px; align-content: start; padding: 14px; background: var(--bg-raise); border: 1px solid var(--line); min-width: 0; }
 .step h4 { font: 600 13.5px var(--sans); margin: 0; }
 .step-n { font: 500 11px var(--mono); color: var(--verified); }
-.bignum { font: 500 38px var(--mono); line-height: 1; }
+.bignum { font: 500 28px var(--mono); line-height: 1; }
 .sigbars { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
 .sigbars li { display: grid; grid-template-columns: minmax(0, 1fr) 54px; gap: 2px 8px; font-size: 12.5px; color: var(--text-2); }
 .sigbars li i { grid-column: 1 / -1; grid-row: 2; height: 4px; background: var(--verified); opacity: .7; }
@@ -101,7 +101,7 @@
 /* 4 · pairing */
 .duel { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .duel-c { display: grid; gap: 6px; padding: 16px; background: var(--bg-raise); border: 1px solid var(--line); }
-.duel-c b { font: 500 34px var(--mono); }
+.duel-c b { font: 500 26px var(--mono); }
 .duel-c em { font-style: normal; color: var(--text-3); font-size: 12.5px; line-height: 1.5; }
 .duel-c--us { border-color: var(--verified); } .duel-c--us b { color: var(--verified); }
 
@@ -140,7 +140,7 @@
 /* results */
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .kpi { display: grid; gap: 6px; padding: 18px; background: var(--panel); border: 1px solid var(--line); }
-.kpi b { font: 500 clamp(26px, 3vw, 38px) var(--mono); line-height: 1; }
+.kpi b { font: 500 clamp(20px, 2vw, 26px) var(--mono); line-height: 1; }
 .kpi span { color: var(--text); font-size: 14px; line-height: 1.35; } .kpi small { color: var(--text-3); font-size: 12px; line-height: 1.45; }
 .kpi--good b { color: var(--verified); }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -170,14 +170,14 @@
 /* key facts strip + takeaway + ID ruler */
 .keystats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
 .keystats > div { display: grid; gap: 6px; padding: 18px 22px; background: var(--panel); }
-.keystats b { font: 600 clamp(26px, 3.4vw, 44px)/1 var(--mono); }
+.keystats b { font: 600 clamp(20px, 2vw, 28px)/1 var(--mono); }
 .keystats span { color: var(--text-2); font-size: 14px; }
 .ks--ok b { color: var(--verified); } .ks--bad b { color: var(--violation); } .ks--warn b { color: var(--pending); }
 .takeaway { display: grid; gap: 8px; padding: 22px 26px; background: var(--panel); border-left: 3px solid var(--verified); }
 .takeaway p { margin: 0; font-size: clamp(16px, 1.6vw, 20px); line-height: 1.55; max-width: 90ch; }
 .idcards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .idcards > div { display: grid; gap: 4px; padding: 14px 16px; background: var(--bg-raise); border: 1px solid var(--line); }
-.idcards span { color: var(--text-2); font-size: 13px; } .idcards b { font: 600 clamp(20px, 2.4vw, 30px) var(--mono); }
+.idcards span { color: var(--text-2); font-size: 13px; } .idcards b { font: 600 clamp(17px, 1.6vw, 22px) var(--mono); }
 .idcards--gap b { color: var(--pending); } .idcards--bad { border-color: var(--violation) !important; } .idcards--bad b { color: var(--violation); }
 .idruler { position: relative; height: 84px; margin: 6px 0 22px; display: flex; align-items: stretch; background: var(--bg-raise); border: 1px solid var(--line); }
 .idruler-normal { background: var(--verified-ink); border-right: 3px solid var(--verified); min-width: 64px; display: grid; align-items: end; padding: 8px 10px; }

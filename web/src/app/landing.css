@@ -22,7 +22,7 @@
 .hero3-scrim { position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background: linear-gradient(90deg, var(--bg) 0%, rgb(8 9 11 / .86) 30%, rgb(8 9 11 / .1) 62%, transparent 100%), linear-gradient(0deg, var(--bg) 0%, transparent 22%); }
 .hero3-copy { display: grid; gap: 26px; justify-items: start; padding-top: clamp(24px, 6vh, 80px); padding-bottom: 96px; }
-.hero3 h1 { display: grid; font: 600 clamp(32px, 3.9vw, 56px)/1.08 var(--display); letter-spacing: -0.045em; margin: 0; }
+.hero3 h1 { display: grid; font: 600 clamp(30px, 3.4vw, 48px)/1.08 var(--display); letter-spacing: -0.045em; margin: 0; }
 .hero3 h1 span { white-space: nowrap; }
 @media (max-width: 767px) { .hero3 h1 span { white-space: normal; } }
 .hero3-accent { color: var(--verified); }
@@ -31,12 +31,12 @@
 .hero-live { position: absolute; right: var(--gutter); bottom: 32px; display: grid; gap: 4px; justify-items: end; padding: 12px 16px; border-radius: 14px;
   background: rgb(8 9 11 / .85); box-shadow: inset 0 0 0 1px var(--line-2), inset 0 1px 0 rgb(255 255 255 / .06); }
 .hero-live span { font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
-.hero-live b { font-size: clamp(16px, 1.6vw, 21px); color: var(--verified); transition: color .4s var(--ease); }
+.hero-live b { font-size: clamp(15px, 1.3vw, 18px); color: var(--verified); transition: color .4s var(--ease); }
 .hero-live.is-breach b { color: var(--violation); }
 
 /* ── proof ── */
 .proof3 { display: grid; grid-template-columns: 1.35fr 0.75fr 1.1fr; gap: clamp(24px, 4vw, 64px); padding-top: clamp(48px, 6vw, 88px); padding-bottom: clamp(40px, 5vw, 72px); }
-.proof3-n { font: 600 clamp(36px, 4.4vw, 64px)/1 var(--mono); letter-spacing: -0.05em; color: var(--verified); font-variant-numeric: tabular-nums; }
+.proof3-n { font: 600 clamp(28px, 2.8vw, 40px)/1 var(--mono); letter-spacing: -0.05em; color: var(--verified); font-variant-numeric: tabular-nums; }
 .proof3-n em { font-style: normal; color: var(--text-3); }
 .proof3-n--bad { color: var(--violation); }
 .proof3 p { margin: 14px 0 0; color: var(--text-2); font-size: 15.5px; max-width: 30ch; line-height: 1.5; }
@@ -44,12 +44,12 @@
 
 /* ── versus ── */
 .vs { display: grid; gap: clamp(28px, 4vw, 52px); padding-top: clamp(40px, 5vw, 72px); padding-bottom: clamp(40px, 5vw, 72px); }
-.vs h2, .ideas3 h2, .steps3 h2, .show h2, .close3 h2 { font: 600 clamp(24px, 2.6vw, 38px)/1.12 var(--display); letter-spacing: -0.035em; margin: 0; max-width: 20ch; text-wrap: balance; }
+.vs h2, .ideas3 h2, .steps3 h2, .show h2, .close3 h2 { font: 600 clamp(22px, 2.1vw, 30px)/1.12 var(--display); letter-spacing: -0.035em; margin: 0; max-width: 20ch; text-wrap: balance; }
 .vs-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: clamp(16px, 3vw, 40px); align-items: stretch; }
 .vs-card { display: grid; gap: 14px; align-content: start; padding: clamp(24px, 3vw, 40px); border-radius: 22px; background: linear-gradient(180deg, var(--panel) 0%, var(--bg-raise) 100%);
   box-shadow: inset 0 0 0 1px var(--line), inset 0 1px 0 rgb(255 255 255 / .05); }
 .vs-when { font: 500 12px var(--mono); letter-spacing: .06em; color: var(--text-3); }
-.vs-card b { font-size: clamp(30px, 3.4vw, 48px); letter-spacing: -0.04em; color: var(--violation); line-height: 1; }
+.vs-card b { font-size: clamp(24px, 2.3vw, 32px); letter-spacing: -0.04em; color: var(--violation); line-height: 1; }
 .vs-card p { margin: 0; color: var(--text-2); font-size: 16px; line-height: 1.6; max-width: 46ch; }
 .vs-mid { display: grid; place-items: center; color: var(--text-3); }
 .vs-rule p { margin: 0; font-size: clamp(16px, 1.4vw, 20px); line-height: 1.5; color: var(--text-2); max-width: 52ch; }
@@ -70,7 +70,7 @@
 .cell h3 { font: 600 clamp(18px, 1.5vw, 22px) var(--display); letter-spacing: -0.02em; color: var(--text); margin: 0; }
 .cell p { margin: 0; color: var(--text-2); font-size: 15px; line-height: 1.55; max-width: 48ch; }
 .cell footer { color: var(--text-2); font-size: 14px; line-height: 1.5; }
-.cell footer b { color: var(--text); font-size: 16px; margin-right: 6px; }
+.cell footer b { color: var(--text); font-size: 15px; margin-right: 6px; }
 .dotfield { width: 100%; height: auto; display: block; margin: 6px 0; }
 .vals3 { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 6px; margin: 8px 0; }
 .vals3 span { aspect-ratio: 1 / 1.4; border-radius: 8px; background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line-2); display: grid; align-items: end; justify-items: center; padding-bottom: 6px; }
@@ -129,5 +129,5 @@
 }
 .idmini { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .idmini > div { display: grid; gap: 4px; padding: 12px 14px; border-radius: 14px; background: var(--bg-raise); box-shadow: inset 0 0 0 1px var(--line); }
-.idmini span { font-size: 12.5px; color: var(--text-3); } .idmini b { font-size: clamp(18px, 1.8vw, 24px); }
+.idmini span { font-size: 12.5px; color: var(--text-3); } .idmini b { font-size: clamp(16px, 1.4vw, 19px); }
 .idmini .bad { box-shadow: inset 0 0 0 1px rgb(255 106 61 / .45); } .idmini .bad b { color: var(--violation); }

@@ -57,7 +57,7 @@
 .gauge { display: grid; gap: 8px; }
 .gauge-foot { font-size: 11px; padding-top: 10px; border-top: 1px solid var(--line); }
 .incident { display: grid; gap: 16px; }
-.incident-usd { font: 400 clamp(30px, 3.4vw, 48px)/1 var(--mono); font-stretch: 87.5%; letter-spacing: -0.04em; color: var(--violation); }
+.incident-usd { font: 400 clamp(22px, 2.2vw, 32px)/1 var(--mono); font-stretch: 87.5%; letter-spacing: -0.04em; color: var(--violation); }
 .incident-stats { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); }
 .incident-stats > div { display: grid; gap: 4px; padding: 10px; }
 .incident-stats > div + div { border-left: 1px solid var(--line); }
@@ -116,7 +116,7 @@
 .triple { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); }
 .triple > div { display: grid; gap: 6px; padding: 14px; min-width: 0; }
 .triple > div + div { border-left: 1px solid var(--line); }
-.big { font-size: clamp(18px, 2.2vw, 30px); letter-spacing: -0.03em; overflow-wrap: anywhere; line-height: 1.1; }
+.big { font-size: clamp(16px, 1.6vw, 22px); letter-spacing: -0.03em; overflow-wrap: anywhere; line-height: 1.1; }
 
 /* ── Incident detail ── */
 .inc-chart { width: 100%; height: 160px; border-bottom: 1px solid var(--line); }
@@ -178,10 +178,10 @@
 .stairs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .stairs li { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); font-size: 13px; }
 .model { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 40px; }
-.model-line { font: 600 clamp(20px, 2.2vw, 30px)/1.15 var(--display); letter-spacing: -0.02em; }
+.model-line { font: 600 clamp(17px, 1.6vw, 22px)/1.15 var(--display); letter-spacing: -0.02em; }
 .confusion { display: grid; grid-template-columns: auto 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); }
 .confusion > * { background: var(--panel); padding: 12px; }
-.cm { font-size: clamp(26px, 3vw, 44px); letter-spacing: -0.03em; }
+.cm { font-size: clamp(20px, 2vw, 28px); letter-spacing: -0.03em; }
 .cm--tp { color: var(--verified); }
 .splits { display: flex; height: 54px; border: 1px solid var(--line); }
 .splits > div { display: grid; align-content: center; gap: 2px; padding: 0 8px; border-right: 1px solid var(--line); min-width: 0; overflow: hidden; }
