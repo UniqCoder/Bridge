@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html, OrbitControls, Stars } from '@react-three/drei';
-import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing';
+import { Bloom, ChromaticAberration, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import type { Ev, Replay } from './data';
 
@@ -61,6 +61,101 @@ function build(data: Replay) {
   return { pos, col, size, arcs, ac, ctl };
 }
 
+const BLOCK = new THREE.BoxGeometry(1, 1, 1);
+const dummy = new THREE.Object3D();
+
+/** The bridge vault: a locked block inside a tumbling cage, a security scanner, and shockwaves when the alarm is on. */
+function Vault({ alarm }: { alarm: boolean }) {
+  const cage = useRef<THREE.Group>(null!), core = useRef<THREE.Mesh>(null!), scan = useRef<THREE.Mesh>(null!);
+  const waves = useRef<THREE.Mesh[]>([]);
+  const cageGeo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(2.8, 2.8, 2.8)), []);
+  const cageGeo2 = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(2.1, 2.1, 2.1)), []);
+  const hue = alarm ? '#ff6a3d' : '#2fd4b5';
+  useFrame(({ clock }) => {
+    const T = clock.elapsedTime;
+    cage.current.rotation.set(T * 0.25, T * 0.4, alarm ? Math.sin(T * 40) * 0.03 : 0);
+    core.current.rotation.set(-T * 0.5, T * 0.7, 0);
+    core.current.scale.setScalar(1 + (alarm ? Math.abs(Math.sin(T * 5)) * 0.18 : Math.sin(T * 1.6) * 0.05));
+    scan.current.position.y = Math.sin(T * 1.7) * 1.9;
+    waves.current.forEach((w, i) => {
+      const u = ((T * (alarm ? 0.55 : 0.22)) + i * 0.5) % 1;
+      w.scale.setScalar(1 + u * (alarm ? 9 : 5));
+      (w.material as THREE.MeshBasicMaterial).opacity = (1 - u) * (alarm ? 0.5 : 0.16);
+    });
+  });
+  return (
+    <group position={VAULT.toArray()}>
+      <group ref={cage}>
+        <lineSegments geometry={cageGeo}><lineBasicMaterial color={alarm ? [3, 0.9, 0.4] : [0.6, 2.4, 2]} toneMapped={false} /></lineSegments>
+        <lineSegments geometry={cageGeo2} rotation={[0.6, 0.6, 0]}><lineBasicMaterial color={[2, 2, 2.2]} toneMapped={false} /></lineSegments>
+      </group>
+      <mesh ref={core}><boxGeometry args={[1.1, 1.1, 1.1]} /><meshBasicMaterial color={alarm ? [4, 1.2, 0.5] : [1.2, 3.4, 2.8]} toneMapped={false} /></mesh>
+      <mesh ref={scan} rotation={[Math.PI / 2, 0, 0]}><ringGeometry args={[1.7, 1.95, 64]} /><meshBasicMaterial color={hue} transparent opacity={0.7} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} /></mesh>
+      {[0, 1].map((i) => (
+        <mesh key={i} rotation={[0, Math.PI / 2, 0]} ref={(m) => { if (m) waves.current[i] = m; }}>
+          <ringGeometry args={[0.95, 1, 64]} /><meshBasicMaterial color={hue} transparent opacity={0} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+        </mesh>))}
+      <Html position={[0, -3.1, 0]} center style={{ pointerEvents: 'none' }}>
+        <div className={`m3-tag m3-tag--vault ${alarm ? 'is-alarm' : ''}`}><b>{alarm ? 'BRIDGE VAULT · BREACH' : 'BRIDGE VAULT'}</b><span>{alarm ? 'copper = paid out with no deposit in' : 'money in on the left, money out on the right'}</span></div>
+      </Html>
+    </group>
+  );
+}
+
+/** Eight rails of data packets: deposits flow into the vault, payouts flow out. Right side turns copper under attack. */
+function Tunnel({ alarm }: { alarm: boolean }) {
+  const L = useRef<THREE.InstancedMesh>(null!), R = useRef<THREE.InstancedMesh>(null!);
+  const N = 8, P = 10;
+  useFrame(({ clock }) => {
+    const T = clock.elapsedTime;
+    ([[L.current, -1], [R.current, 1]] as const).forEach(([im, side]) => {
+      let k = 0;
+      for (let r = 0; r < N; r++) {
+        const a = (r / N) * Math.PI * 2 + (side > 0 ? 0.39 : 0), rad = 1.35;
+        for (let p = 0; p < P; p++) {
+          const u = (T * (side > 0 && alarm ? 0.5 : 0.28) + p / P + r * 0.07) % 1;
+          const x = side < 0 ? -X + 0.4 + u * (X - 2.2) : 2.2 + u * (X - 2.6);
+          const s = 0.07 + (side < 0 ? 0.04 * (1 - u) : 0.05 * u) + (alarm && side > 0 ? 0.03 : 0);
+          dummy.position.set(x, 5 + Math.cos(a) * rad, Math.sin(a) * rad); dummy.scale.set(s * 2.2, s, s); dummy.rotation.set(0, 0, 0); dummy.updateMatrix();
+          im.setMatrixAt(k++, dummy.matrix);
+        }
+      }
+      im.instanceMatrix.needsUpdate = true;
+    });
+  });
+  return (
+    <>
+      <instancedMesh ref={L} args={[BLOCK, undefined, N * P]}><meshBasicMaterial color={[0.7, 2.6, 2.2]} toneMapped={false} /></instancedMesh>
+      <instancedMesh ref={R} args={[BLOCK, undefined, N * P]}><meshBasicMaterial color={alarm ? [3, 0.9, 0.4] : [0.7, 2.6, 2.2]} toneMapped={false} /></instancedMesh>
+    </>
+  );
+}
+
+/** A chain's ledger: a dim grid of blocks with a scanning line, so the plane reads as "a blockchain". */
+function Ledger({ side, label, sub, color }: { side: -1 | 1; label: string; sub: string; color: string }) {
+  const grid = useRef<THREE.InstancedMesh>(null!), line = useRef<THREE.Mesh>(null!);
+  const frame = useMemo(() => new THREE.EdgesGeometry(new THREE.PlaneGeometry(11, 11).rotateY(Math.PI / 2)), []);
+  useEffect(() => {
+    let k = 0;
+    for (let y = 0; y < 13; y++) for (let z = 0; z < 13; z++) {
+      dummy.position.set(0, (y - 6) * 0.85, (z - 6) * 0.85); dummy.scale.setScalar(0.12); dummy.rotation.set(0, 0, 0); dummy.updateMatrix();
+      grid.current.setMatrixAt(k++, dummy.matrix);
+    }
+    grid.current.instanceMatrix.needsUpdate = true;
+  }, []);
+  useFrame(({ clock }) => { line.current.position.z = Math.sin(clock.elapsedTime * 0.8 + (side > 0 ? 1.5 : 0)) * 5.2; });
+  return (
+    <group position={[side * X, 5, 0]}>
+      <instancedMesh ref={grid} args={[BLOCK, undefined, 169]}><meshBasicMaterial color={color} transparent opacity={0.28} toneMapped={false} /></instancedMesh>
+      <mesh ref={line}><boxGeometry args={[0.02, 11, 0.07]} /><meshBasicMaterial color={color} transparent opacity={0.8} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} /></mesh>
+      <lineSegments geometry={frame}><lineBasicMaterial color={color} transparent opacity={0.55} /></lineSegments>
+      <Html position={[0, 6.3, 0]} center style={{ pointerEvents: 'none' }}>
+        <div className="m3-tag" style={{ borderColor: color, color }}><b>{label}</b><span>{sub}</span></div>
+      </Html>
+    </group>
+  );
+}
+
 function Scene({ data, n, selected, onSelect, spin }: Props) {
   const g = useMemo(() => build(data), [data]);
   const mesh = useRef<THREE.InstancedMesh>(null!);
@@ -70,13 +165,11 @@ function Scene({ data, n, selected, onSelect, spin }: Props) {
     x.setAttribute('color', new THREE.BufferAttribute(g.ac, 3));
     return x;
   }, [g]);
-  const frame = useMemo(() => new THREE.EdgesGeometry(new THREE.PlaneGeometry(11, 11).rotateY(Math.PI / 2)), []);
   useEffect(() => {
-    const m = new THREE.Matrix4();
     g.pos.forEach((p, i) => {
-      const s = g.size[i] * (data.events[i].id === selected ? 2.2 : 1);
-      m.makeScale(s, s, s).setPosition(...p);
-      mesh.current.setMatrixAt(i, m);
+      const s = g.size[i] * (data.events[i].id === selected ? 2.4 : 1.25);
+      dummy.position.set(...p); dummy.scale.setScalar(s * 1.5); dummy.rotation.set(i * 0.7, i * 1.3, 0); dummy.updateMatrix();
+      mesh.current.setMatrixAt(i, dummy.matrix);
       mesh.current.setColorAt(i, (data.events[i].id === selected ? INK : g.col[i]).clone().multiplyScalar(2.2));
     });
     mesh.current.instanceMatrix.needsUpdate = true;
@@ -91,8 +184,9 @@ function Scene({ data, n, selected, onSelect, spin }: Props) {
     x.setAttribute('color', new THREE.BufferAttribute(c, 3));
     return x;
   }, [data]);
-  const halo = useRef<THREE.Mesh>(null!), halo2 = useRef<THREE.Mesh>(null!), ring1 = useRef<THREE.Mesh>(null!), ring2 = useRef<THREE.Mesh>(null!);
-  useFrame(({ clock }) => {
+  const hasVoid = data.events.slice(0, n).some((e) => e.status === 'violation');
+  const shake = useRef(0), was = useRef(false);
+  useFrame(({ clock, camera }) => {
     mesh.current.count = n; geo.setDrawRange(0, n * SEG * 2);
     const T = clock.elapsedTime, pa = ptsGeo.getAttribute('position') as THREE.BufferAttribute, k = g.ctl;
     for (let i = 0; i < data.events.length; i++) {
@@ -104,45 +198,32 @@ function Scene({ data, n, selected, onSelect, spin }: Props) {
       pa.setXYZ(i, w * w * k[r] + 2 * w * t * k[r + 3] + t * t * k[r + 6], w * w * k[r + 1] + 2 * w * t * k[r + 4] + t * t * k[r + 7], w * w * k[r + 2] + 2 * w * t * k[r + 5] + t * t * k[r + 8]);
     }
     pa.needsUpdate = true;
-    if (ring1.current) { ring1.current.rotation.y = T * 0.6; ring2.current.rotation.z = -T * 0.45; }
-    halo.current?.scale.setScalar(1 + Math.sin(T * 2.2) * 0.18);
-    halo2.current?.scale.setScalar(1.6 + Math.sin(T * 1.3) * 0.35);
+    // Fly-in on load, a short camera jolt the moment the first unbacked payout appears.
+    if (T < 3) { const e = 1 - Math.pow(1 - Math.min(T / 3, 1), 3); camera.position.lerp(new THREE.Vector3(17, 9, 30), 0.03 + e * 0.05); }
+    if (hasVoid && !was.current) shake.current = 0.9;
+    was.current = hasVoid;
+    if (shake.current > 0) { shake.current -= 0.02; camera.position.x += (Math.random() - 0.5) * 0.35 * shake.current; camera.position.y += (Math.random() - 0.5) * 0.35 * shake.current; }
   });
-  const hasVoid = data.events.slice(0, n).some((e) => e.status === 'violation');
-  const glow = hasVoid ? '#ff6a3d' : '#9fe8d8';
   return (
     <>
-      <color attach="background" args={['#08090b']} />
-      <fog attach="fog" args={['#08090b', 28, 64]} />
-      {([-1, 1] as const).map((s) => (
-        <group key={s} position={[s * X, 5, 0]}>
-          <mesh rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[11, 11]} /><meshBasicMaterial color={s < 0 ? '#c9a7ff' : '#8c9eff'} transparent opacity={0.045} side={THREE.DoubleSide} depthWrite={false} /></mesh>
-          <lineSegments geometry={frame}><lineBasicMaterial color={s < 0 ? '#6e5f8f' : '#4d5a99'} /></lineSegments>
-          <Html position={[0, 6.3, 0]} center style={{ pointerEvents: 'none' }}>
-            <div className="m3-tag" style={{ borderColor: s < 0 ? '#c9a7ff' : '#8c9eff', color: s < 0 ? '#c9a7ff' : '#8c9eff' }}>
-              <b>{s < 0 ? 'SOURCE CHAIN' : 'DESTINATION CHAIN'}</b><span>{s < 0 ? `${data.src} · where deposits are made` : `${data.dst} · where payouts are made`}</span>
-            </div>
-          </Html>
-        </group>
-      ))}
-      <group position={VAULT.toArray()}>
-        <mesh><icosahedronGeometry args={[0.55, 3]} /><meshBasicMaterial color={[3, 3, 3.2]} toneMapped={false} /></mesh>
-        <mesh ref={ring1} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[1.5, 0.045, 12, 96]} /><meshBasicMaterial color={[2, 2, 2.2]} toneMapped={false} /></mesh>
-        <mesh ref={ring2}><torusGeometry args={[1.9, 0.03, 12, 96]} /><meshBasicMaterial color={[0.9, 2.2, 1.9]} toneMapped={false} /></mesh>
-        <mesh ref={halo}><sphereGeometry args={[1.1, 24, 24]} /><meshBasicMaterial color={glow} transparent opacity={0.16} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>
-        <mesh ref={halo2}><sphereGeometry args={[1.1, 24, 24]} /><meshBasicMaterial color={glow} transparent opacity={0.06} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>
-        <Html position={[0, -2.9, 0]} center style={{ pointerEvents: 'none' }}>
-          <div className="m3-tag m3-tag--vault"><b>BRIDGE VAULT</b><span>{hasVoid ? 'copper = paid out with no deposit in' : 'money in on the left, money out on the right'}</span></div>
-        </Html>
-      </group>
+      <color attach="background" args={['#06070a']} />
+      <fog attach="fog" args={['#06070a', 30, 70]} />
+      <Ledger side={-1} label="SOURCE CHAIN" sub={`${data.src} · where deposits are made`} color="#c9a7ff" />
+      <Ledger side={1} label="DESTINATION CHAIN" sub={`${data.dst} · where payouts are made`} color="#8c9eff" />
+      <Vault alarm={hasVoid} />
+      <Tunnel alarm={hasVoid} />
       <lineSegments geometry={geo}><lineBasicMaterial vertexColors transparent opacity={0.6} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} /></lineSegments>
       <points geometry={ptsGeo} frustumCulled={false}><pointsMaterial vertexColors size={0.16} sizeAttenuation transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></points>
-      <Stars radius={60} depth={30} count={900} factor={2.2} fade speed={0.4} />
-      <gridHelper args={[60, 60, '#1c2026', '#12151a']} position={[0, -1.2, 0]} />
-      <instancedMesh ref={mesh} args={[undefined, undefined, data.events.length]} onClick={pick}>
-        <icosahedronGeometry args={[1, 1]} /><meshBasicMaterial toneMapped={false} />
+      <Stars radius={70} depth={40} count={1200} factor={2.4} fade speed={0.5} />
+      <gridHelper args={[80, 80, '#1c2026', '#101318']} position={[0, -1.2, 0]} />
+      <instancedMesh ref={mesh} args={[BLOCK, undefined, data.events.length]} onClick={pick}>
+        <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
-      <EffectComposer multisampling={0}><Bloom luminanceThreshold={0.9} intensity={1.15} mipmapBlur radius={0.7} /><Vignette offset={0.25} darkness={0.7} /></EffectComposer>
+      <EffectComposer multisampling={0}>
+        <Bloom luminanceThreshold={0.9} intensity={1.3} mipmapBlur radius={0.75} />
+        <ChromaticAberration offset={useMemo(() => new THREE.Vector2(hasVoid ? 0.0016 : 0.0005, hasVoid ? 0.0012 : 0.0004), [hasVoid])} radialModulation={false} modulationOffset={0} />
+        <Vignette offset={0.25} darkness={0.75} />
+      </EffectComposer>
       <OrbitControls target={[0, 5, 0]} enableDamping dampingFactor={0.08} autoRotate={spin} autoRotateSpeed={0.5} minDistance={10} maxDistance={50} enablePan={false} />
     </>
   );
@@ -152,8 +233,8 @@ type Props = { data: Replay; n: number; selected: string | null; onSelect: (id: 
 
 export function Map3D(p: Props) {
   return (
-    <div className="lg-canvas" role="img" aria-label={`3D map of ${p.data.label}: deposits on the left plane, the bridge vault in the middle, payouts on the right; copper arcs are payouts with no deposit.`}>
-      <Canvas dpr={[1, 1.75]} camera={{ fov: 40, position: [17, 9, 30] }}><Scene {...p} /></Canvas>
+    <div className="lg-canvas" role="img" aria-label={`3D map of ${p.data.label}: deposits on the left chain, the bridge vault in the middle, payouts on the right chain; copper packets and arcs are payouts with no deposit.`}>
+      <Canvas dpr={[1, 1.75]} camera={{ fov: 40, position: [44, 22, 70] }}><Scene {...p} /></Canvas>
     </div>
   );
 }

@@ -101,3 +101,5 @@
 .m3-tag { display: grid; gap: 2px; padding: 6px 10px; background: rgb(8 9 11 / 0.8); border: 1px solid var(--line-2); white-space: nowrap; text-align: center; }
 .m3-tag b { font: 600 11px var(--mono); letter-spacing: .12em; } .m3-tag span { font: 11px var(--sans); color: var(--text-2); }
 .m3-tag--vault { border-color: var(--text); color: var(--text); }
+.m3-tag.is-alarm { border-color: var(--violation); color: var(--violation); animation: m3blink 1s steps(2) infinite; }
+@keyframes m3blink { 50% { background: rgb(255 106 61 / 0.18); } }
