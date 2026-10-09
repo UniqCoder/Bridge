@@ -157,6 +157,18 @@ function Ledger({ side, label, sub, color, bare }: { side: -1 | 1; label: string
   );
 }
 
+/** Memoized: EffectComposer rebuilds its pass (and recompiles shaders) on every re-render, and the scene re-renders on each clock tick. */
+const Post = memo(function Post({ alarm }: { alarm: boolean }) {
+  const off = useMemo(() => new THREE.Vector2(alarm ? 0.0016 : 0.0005, alarm ? 0.0012 : 0.0004), [alarm]);
+  return (
+    <EffectComposer multisampling={0}>
+      <Bloom luminanceThreshold={0.9} intensity={1.3} mipmapBlur radius={0.75} />
+      <ChromaticAberration offset={off} radialModulation={false} modulationOffset={0} />
+      <Vignette offset={0.25} darkness={0.75} />
+    </EffectComposer>
+  );
+});
+
 function Scene({ data, n, selected, onSelect, spin, bare }: Props) {
   const g = useMemo(() => build(data), [data]);
   const mesh = useRef<THREE.InstancedMesh>(null!);
@@ -220,11 +232,7 @@ function Scene({ data, n, selected, onSelect, spin, bare }: Props) {
       <instancedMesh ref={mesh} args={[BLOCK, undefined, data.events.length]} onClick={pick}>
         <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
-      <EffectComposer multisampling={0}>
-        <Bloom luminanceThreshold={0.9} intensity={1.3} mipmapBlur radius={0.75} />
-        <ChromaticAberration offset={useMemo(() => new THREE.Vector2(hasVoid ? 0.0016 : 0.0005, hasVoid ? 0.0012 : 0.0004), [hasVoid])} radialModulation={false} modulationOffset={0} />
-        <Vignette offset={0.25} darkness={0.75} />
-      </EffectComposer>
+      <Post alarm={hasVoid} />
       <OrbitControls target={bare ? [-10, 4.5, 0] : [0, 5, 0]} enableZoom={!bare} enableDamping dampingFactor={0.08} autoRotate={spin} autoRotateSpeed={0.5} minDistance={10} maxDistance={50} enablePan={false} />
     </>
   );
@@ -249,7 +257,7 @@ export const Map3D = memo(function Map3D(p: Props) {
   const breach = gap > 0;
   return (
     <div ref={box} className="lg-canvas m3" role="img" aria-label={`3D map of ${p.data.label}: deposits on the left chain, the bridge vault in the middle, payouts on the right chain; copper packets and arcs are payouts with no deposit.`}>
-      <Canvas dpr={[1, 1.5]} frameloop={visible ? 'always' : 'never'} gl={{ powerPreference: 'high-performance', antialias: false }} camera={{ fov: 40, position: [44, 22, 70] }}><Scene {...p} /></Canvas>
+      <Canvas dpr={p.bare ? 1 : [1, 1.5]} frameloop={visible ? 'always' : 'never'} gl={{ powerPreference: 'high-performance', antialias: false }} camera={{ fov: 40, position: [44, 22, 70] }}><Scene {...p} /></Canvas>
       {!p.bare && <>
       <div className={`m3-hud ${breach ? 'is-breach' : ''}`} aria-hidden="true">
         <div><span>MONEY IN</span><b>{usd(dep)}</b><i>locked on the source chain</i></div>
