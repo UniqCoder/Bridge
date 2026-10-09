@@ -10,11 +10,8 @@ services:
     dockerContext: .
     healthCheckPath: /health
     envVars:
-      - key: BW_ALLOWED_ORIGIN
-        fromService:
-          type: web
-          name: bridgewitness-web
-          property: host
+      - key: BW_ALLOWED_ORIGIN    # public URL of the static site (Render's "host" property is the internal name)
+        value: https://bridgewitness-web.onrender.com
 
   - type: web
     name: bridgewitness-web
@@ -23,11 +20,8 @@ services:
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     envVars:
-      - key: VITE_BW_API
-        fromService:
-          type: web
-          name: bridgewitness-api
-          property: host
+      - key: VITE_BW_API          # public URL of the API; the browser cannot reach Render's internal host name
+        value: https://bridgewitness-api.onrender.com
     routes:
       - type: rewrite
         source: /*
