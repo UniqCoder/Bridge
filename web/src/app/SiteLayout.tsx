@@ -1,5 +1,6 @@
-import { Suspense } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Suspense, useEffect, useState } from 'react';
+import { List, X } from '@phosphor-icons/react';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ButtonLink, Logo } from '../design/ui';
 
 const NOT_CLAIMED = [
@@ -31,13 +32,16 @@ export function Footer() {
 }
 
 export function SiteLayout({ notFound }: { notFound?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const { pathname } = useLocation();
+  useEffect(() => setOpen(false), [pathname]);
   return (
     <div className="site">
       <a href="#main" className="skip">Skip to content</a>
       <header className="site-nav">
         <div className="nav-island">
           <Link to="/" aria-label="BridgeWitness home"><Logo /></Link>
-          <nav className="site-links" aria-label="Primary">
+          <nav id="site-links" className={`site-links ${open ? 'is-open' : ''}`} aria-label="Primary">
             <NavLink to="/console/live">Live console</NavLink>
             <NavLink to="/console/map">3D map</NavLink>
             <NavLink to="/console/budget">Ideas</NavLink>
@@ -46,6 +50,7 @@ export function SiteLayout({ notFound }: { notFound?: boolean }) {
             <NavLink to="/docs/architecture">How it works</NavLink>
           </nav>
           <Link to="/console/live" className="nav-cta">Open the console</Link>
+          <button className="nav-menu" aria-expanded={open} aria-controls="site-links" aria-label={open ? 'Close menu' : 'Open menu'} onClick={() => setOpen((o) => !o)}>{open ? <X size={20} /> : <List size={20} />}</button>
         </div>
       </header>
       <main id="main">
