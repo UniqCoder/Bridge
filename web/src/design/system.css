@@ -1,0 +1,202 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   OXIDE VAULT — BridgeWitness design system
+   Graphite + gunmetal, machined plates, engraved mono labels.
+   Colour is semantic: patina = verified, copper = violation, brass = pending/overdue,
+   unknown = hatch texture (never a colour), orphaned = outline + strike.
+   Chain hues appear only on chain identifiers.
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --bg: #08090b;
+  --bg-raise: #0c0e11;
+  --panel: #111317;
+  --panel-2: #16191e;
+  --line: #23262c;
+  --line-2: #30343c;
+  --text: #e9ecef;
+  --text-2: #a4abb6;
+  --text-3: #6b727d;
+
+  --verified: #2fd4b5;
+  --violation: #ff6a3d;
+  --pending: #e3b04b;
+  --verified-ink: color-mix(in oklab, var(--verified) 12%, transparent);
+  --violation-ink: color-mix(in oklab, var(--violation) 12%, transparent);
+  --pending-ink: color-mix(in oklab, var(--pending) 12%, transparent);
+
+  --eth: #8c9eff;
+  --moon: #c9a7ff;
+  --local: #9db2c8;
+
+  --display: 'Unbounded', 'Arial Black', sans-serif;
+  --sans: 'Instrument Sans', system-ui, sans-serif;
+  --mono: 'Martian Mono', ui-monospace, monospace;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-camera: cubic-bezier(0.65, 0, 0.35, 1);
+  --chamfer: 12px;
+  --gutter: clamp(16px, 4vw, 56px);
+  --max: 1320px;
+  --hatch: repeating-linear-gradient(45deg, rgb(164 171 182 / 0.32) 0 1px, transparent 1px 4px);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body {
+  font: 400 15px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  /* engraved micro-grid */
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.018) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+::selection { background: color-mix(in oklab, var(--verified) 30%, transparent); }
+:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+a { color: inherit; }
+button, input, select { font: inherit; color: inherit; }
+img, svg { display: block; }
+h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; letter-spacing: -0.025em; margin: 0; line-height: 1.04; }
+p { margin: 0; }
+* { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+
+/* ── Type ── */
+.t-hero { font-size: clamp(34px, 5.4vw, 82px); }
+.t-h2 { font-size: clamp(26px, 3.1vw, 46px); }
+.t-h3 { font-family: var(--display); font-size: 17px; font-weight: 500; letter-spacing: -0.01em; }
+.t-lead { font-size: clamp(16px, 1.35vw, 19px); color: var(--text-2); max-width: 60ch; }
+.t-body { color: var(--text-2); max-width: 62ch; }
+.mono { font-family: var(--mono); font-stretch: 87.5%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.label {
+  font-family: var(--mono); font-stretch: 87.5%; font-size: 10px; font-weight: 500;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3);
+}
+.muted { color: var(--text-2); }
+.dim { color: var(--text-3); }
+.c-verified { color: var(--verified); }
+.c-violation { color: var(--violation); }
+.c-pending { color: var(--pending); }
+
+/* ── Layout ── */
+.wrap { width: 100%; max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
+.row { display: flex; align-items: center; gap: 12px; }
+.row-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.stack { display: grid; gap: 12px; }
+.spread { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.hr { height: 1px; background: var(--line); border: 0; margin: 0; }
+
+/* ── Plate: the machined panel. Chamfered top-right corner. ── */
+.plate {
+  position: relative; background: linear-gradient(180deg, #13161a, #0f1114);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.035);
+  clip-path: polygon(0 0, calc(100% - var(--chamfer)) 0, 100% var(--chamfer), 100% 100%, 0 100%);
+}
+.plate::after { /* the chamfer edge */
+  content: ''; position: absolute; top: 0; right: 0; width: var(--chamfer); height: var(--chamfer); pointer-events: none;
+  background: linear-gradient(to bottom left, transparent calc(50% - 0.75px), var(--line-2) 50%, transparent calc(50% + 0.75px));
+}
+.plate-head {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
+  padding: 11px 16px; border-bottom: 1px solid var(--line); min-height: 42px;
+}
+.plate-head .label b { color: var(--text-2); font-weight: 500; }
+.plate-body { padding: 16px; }
+.plate { min-width: 0; }
+.plate > header + div { overflow-x: auto; }
+.plate--flat { clip-path: none; }
+.plate--flat::after { display: none; }
+
+/* ── Buttons ── */
+.btn {
+  --cut: 8px;
+  display: inline-flex; align-items: center; gap: 10px; padding: 11px 18px; border: 0; cursor: pointer;
+  font: 500 14px/1 var(--sans); letter-spacing: 0; text-decoration: none; white-space: nowrap;
+  background: var(--text); color: var(--bg);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%);
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.btn:hover { background: #fff; }
+.btn .arrow { transition: transform 0.3s var(--ease); }
+.btn:hover .arrow { transform: translateX(3px); }
+.btn--line { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1px var(--line-2); clip-path: none; }
+.btn--line:hover { background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--text-3); }
+.btn--sm { padding: 8px 12px; font-size: 13px; }
+.btn[disabled], .btn[aria-disabled='true'] { opacity: 0.45; cursor: not-allowed; }
+.btn[aria-pressed='true'] { box-shadow: inset 0 0 0 1px var(--text); background: var(--panel-2); }
+.icon-btn {
+  display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; cursor: pointer;
+  background: transparent; border: 1px solid var(--line-2); color: var(--text);
+}
+.icon-btn:hover { border-color: var(--text-3); background: var(--panel-2); }
+
+/* ── Verdict badge: texture + label always carry meaning ── */
+.v {
+  display: inline-flex; align-items: center; gap: 7px; padding: 3px 8px 3px 6px; white-space: nowrap;
+  font: 500 10px/1.4 var(--mono); font-stretch: 87.5%; letter-spacing: 0.08em; text-transform: uppercase;
+  border: 1px solid var(--line-2); color: var(--text-2);
+}
+.v::before { content: ''; width: 8px; height: 8px; flex: none; }
+.v--invariant_violation { color: #ff8a63; border-color: color-mix(in oklab, var(--violation) 45%, transparent); background: var(--violation-ink); }
+.v--invariant_violation::before { background: var(--violation); }
+.v--consistent_under_supplied_evidence { color: var(--verified); border-color: color-mix(in oklab, var(--verified) 35%, transparent); background: var(--verified-ink); }
+.v--consistent_under_supplied_evidence::before { background: var(--verified); }
+.v--pending { color: var(--pending); border-color: color-mix(in oklab, var(--pending) 35%, transparent); }
+.v--pending::before { background: linear-gradient(90deg, var(--pending) 50%, transparent 50%); }
+.v--overdue { color: var(--pending); border-style: dashed; border-color: color-mix(in oklab, var(--pending) 45%, transparent); }
+.v--overdue::before { box-shadow: inset 0 0 0 1px var(--pending); animation: pulse 2.4s var(--ease-camera) infinite; }
+.v--unknown::before { background: var(--hatch); box-shadow: inset 0 0 0 1px var(--line-2); }
+.v--orphaned { text-decoration: line-through; color: var(--text-3); }
+.v--orphaned::before { box-shadow: inset 0 0 0 1px var(--text-3); }
+@keyframes pulse { 50% { opacity: 0.25; } }
+
+/* ── Tags ── */
+.tag {
+  display: inline-flex; align-items: center; gap: 6px; padding: 2px 7px; max-width: 100%;
+  font: 500 9.5px/1.5 var(--mono); font-stretch: 87.5%; letter-spacing: 0.1em; text-transform: uppercase;
+  border: 1px solid var(--line-2); color: var(--text-3);
+}
+.tag--pending { border-style: dashed; }
+.tag--real { color: var(--text); border-color: var(--text-3); }
+.tag--live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--verified); animation: pulse 1.6s infinite; }
+
+.chain { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font: 500 11px var(--mono); font-stretch: 87.5%; }
+.chain::before { content: ''; width: 7px; height: 7px; transform: rotate(45deg); background: var(--c, var(--local)); }
+
+.hash { font: 400 12px var(--mono); font-stretch: 87.5%; color: var(--text-2); text-decoration: none; white-space: nowrap; }
+a.hash:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ── Readout: an instrument value, not a KPI tile ── */
+.readout { display: grid; gap: 4px; }
+.readout-value { font: 400 clamp(22px, 2.4vw, 34px)/1 var(--mono); font-stretch: 87.5%; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.readout-value small { font-size: 0.45em; color: var(--text-3); margin-left: 4px; letter-spacing: 0; }
+
+/* ── Data table ── */
+.table { width: 100%; border-collapse: collapse; font: 400 12px var(--mono); font-stretch: 87.5%; }
+.table th { text-align: left; font-weight: 500; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.table td { padding: 8px 10px; border-bottom: 1px solid color-mix(in oklab, var(--line) 60%, transparent); color: var(--text-2); vertical-align: middle; }
+.table tr:hover td { background: rgb(255 255 255 / 0.015); }
+.table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ── Bar meter ── */
+.meter { position: relative; height: 6px; background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line); }
+.meter > span { position: absolute; inset: 0 auto 0 0; background: var(--text-2); }
+
+/* ── Odometer ── */
+.odo { display: inline-flex; line-height: 1; }
+.odo-col { display: inline-block; height: 1em; overflow: hidden; }
+.odo-col > span { display: flex; flex-direction: column; transition: transform 0.7s var(--ease); }
+.odo-col > span > span { height: 1em; }
+
+/* ── Range input ── */
+input[type='range'] { width: 100%; accent-color: var(--text); }
+
+/* ── Reveal on view ── */
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.9s var(--ease), transform 0.9s var(--ease); }
+.reveal.is-in { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition-duration: 0.01ms !important; }
+  .reveal { opacity: 1; transform: none; }
+}

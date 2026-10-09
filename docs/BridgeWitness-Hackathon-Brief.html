@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BridgeWitness — Hackathon Brief (CSB-01)</title>
+<style>
+  @page { size: A4; margin: 14mm 14mm 17mm; @bottom-left { content: "BridgeWitness · CSB-01 · prototype brief · 9 Oct 2026"; font: 7pt Consolas, monospace; color: #5b6572; } @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 7pt Consolas, monospace; color: #5b6572; } }
+  @page :first { @bottom-left { content: none; } @bottom-right { content: none; } }
+  :root { --ink:#0b0d10; --text:#1b2027; --mute:#5b6572; --line:#d9dee5; --teal:#0f9f86; --copper:#d9501f; --brass:#a87a14; --panel:#f4f6f8; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin:0; font: 9.6pt/1.45 "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: var(--text); }
+  h1,h2,h3 { font-family: "Segoe UI Semibold","Segoe UI",Arial,sans-serif; color: var(--ink); margin:0; line-height:1.15; }
+  h2 { font-size: 17pt; margin: 0 0 4mm; padding-bottom: 2.5mm; border-bottom: 2px solid var(--ink); letter-spacing:-0.01em; }
+  h2 small { display:block; font: 600 8pt "Consolas","Courier New",monospace; letter-spacing:.14em; text-transform:uppercase; color: var(--teal); margin-bottom:1.5mm; }
+  h3 { font-size: 11pt; margin: 5mm 0 1.5mm; }
+  p { margin: 0 0 2.6mm; }
+  ul, ol { margin: 0 0 3mm; padding-left: 5mm; } li { margin-bottom: 1mm; }
+  b, strong { color: var(--ink); }
+  .mono { font-family: "Consolas","Courier New",monospace; font-size: 9pt; }
+  section { break-before: page; }
+  section.tight { font-size: 9.1pt; line-height: 1.38; }
+  section.tight table { font-size: 8.3pt; margin: 1.5mm 0 2.5mm; }
+  section.tight h3 { margin: 3.5mm 0 1mm; font-size: 10.4pt; }
+  section.tight ul { margin-bottom: 2mm; } section.tight .callout { padding: 2.2mm 3.5mm; margin: 2mm 0; }
+  section.first { break-before: auto; }
+  table { width:100%; border-collapse: collapse; margin: 2mm 0 3mm; font-size: 8.7pt; break-inside: auto; }
+  th { text-align:left; background: var(--ink); color:#fff; font-weight:600; padding: 1.5mm 2.2mm; font-size: 8pt; letter-spacing:.04em; }
+  td { padding: 1.5mm 2.2mm; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr { break-inside: avoid; }
+  td.n, th.n { text-align:right; white-space:nowrap; font-variant-numeric: tabular-nums; }
+  .cover { height: 262mm; display:flex; flex-direction:column; justify-content:space-between; }
+  .cover .top { font: 600 8.5pt "Consolas",monospace; letter-spacing:.16em; text-transform:uppercase; color: var(--mute); display:flex; justify-content:space-between; }
+  .cover h1 { font-size: 40pt; letter-spacing:-0.03em; margin: 22mm 0 6mm; }
+  .cover .line { font-size: 17pt; color: var(--text); max-width: 150mm; line-height:1.3; }
+  .cover .line em { color: var(--teal); font-style: normal; font-weight:600; }
+  .strip { display:grid; grid-template-columns: repeat(4,1fr); border:1px solid var(--line); }
+  .strip div { padding: 4mm; border-right:1px solid var(--line); } .strip div:last-child{ border-right:0; }
+  .strip b { display:block; font: 600 17pt "Consolas",monospace; letter-spacing:-.03em; }
+  .strip span { font-size: 8pt; color: var(--mute); }
+  .callout { background: var(--panel); border-left: 3px solid var(--teal); padding: 3mm 4mm; margin: 3mm 0 4mm; }
+  .callout.warn { border-left-color: var(--brass); } .callout.bad { border-left-color: var(--copper); }
+  .tag { display:inline-block; font: 600 7.4pt "Consolas",monospace; letter-spacing:.06em; text-transform:uppercase; padding:.4mm 1.6mm; border:1px solid var(--line); color:var(--mute); white-space:nowrap; }
+  .tag.ok { color:#0b7a67; border-color:#9bd8cc; background:#e8f7f3; } .tag.syn { color:#8a5a00; border-color:#e6cf9a; background:#fbf3de; } .tag.plan { color:#3d4a5c; border-color:#c4ccd8; background:#eef1f5; }
+  .cols { display:grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+  .card { border:1px solid var(--line); padding:3.5mm 4mm; break-inside: avoid; }
+  .card h3 { margin-top:0; }
+  .num { font: 600 9pt "Consolas",monospace; color: var(--teal); }
+  .small { font-size: 8.6pt; color: var(--mute); }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<section class="first cover">
+  <div class="top"><span>Hackathon brief · CSB-01 · Chainalysis</span><span>Prototype · 9 Oct 2026</span></div>
+  <div>
+    <h1>BridgeWitness</h1>
+    <p class="line">Real-time detection of cross-chain bridge exploits that <em>decides</em> on proof, not on guesses: every release must consume a real, unspent deposit, to the wei.</p>
+    <p class="small" style="margin-top:6mm; max-width:140mm">An independent monitor and enforcement point for cross-chain bridges. It replays bridge feeds, flags mismatched deposit/withdrawal pairs, volume spikes and unusual signer behaviour, and raises a risk-scored alert that names the suspected exploit and carries evidence anyone can re-run in a browser.</p>
+  </div>
+  <div>
+    <div class="strip">
+      <div><b>382/382</b><span>real Nomad exploit releases flagged, from the first one</span></div>
+      <div><b>0/4,482</b><span>matched Nomad transfers flagged</span></div>
+      <div><b>6/6</b><span>simulated attack scenarios typed correctly; 2/2 controls raise no exploit alert</span></div>
+      <div><b>12/12</b><span>reference evidence bundles re-verified in the browser</span></div>
+    </div>
+    <p class="small" style="margin-top:3mm">Nomad labels come from XChainWatcher's own matching rules; the simulated replay is synthetic by design. See §8.</p>
+  </div>
+</section>
+
+<!-- 1 PROBLEM -->
+<section>
+  <h2><small>01 · Problem statement</small>Bridges are the biggest target, and exploits outrun humans</h2>
+  <div class="callout"><b>CSB-01 (Chainalysis):</b> cross-chain bridges move billions between blockchains and are the single largest source of crypto hacks. Exploits (fake deposits, signature forgery, liquidity draining) often complete within minutes, faster than manual monitoring can react. Expected: a dashboard over a live or replayed feed that flags volume spikes, unusual signer behaviour and mismatched deposit/withdrawal pairs, and raises a risk-scored alert with the suspected exploit type.</div>
+  <h3>Why it is hard</h3>
+  <p>Bridge attacks differ in mechanism but share one effect: the destination chain releases tokens that the source chain never locked. Three common defences each miss it, and we measured two of them on real data:</p>
+  <table>
+    <tr><th>Defence</th><th>Why it fails</th><th>Measured on the real datasets</th></tr>
+    <tr><td><b>Signature / quorum checks</b></td><td>Stolen keys make valid signatures</td><td>Ronin: 5 of 9 validator keys were stolen (public reports); the signatures were valid</td></tr>
+    <tr><td><b>Volume-spike detection</b></td><td>Fires late, or not at all, and false-alarms on busy honest periods</td><td>Ronin: <b>0 of 2</b> releases flagged. Nomad: first flag at <b>+2,986 s</b>, by which time <b>17 releases and $23.6M (14.8%)</b> had already gone; 3.1% false alarms on normal Nomad traffic</td></tr>
+    <tr><td><b>Large-transfer ("whale") alerts</b></td><td>Fire only after funds moved</td><td>Ronin: both releases exceed $1M, but post-execution response recovers at most ~4.5%</td></tr>
+  </table>
+  <h3>The scale</h3>
+  <ul>
+    <li>Chainalysis estimated roughly <b>$2B stolen from bridges in 2022</b> (public estimate; motivation, not our result).</li>
+    <li><b>Ronin</b> (23 Mar 2022): two withdrawals <b>115 s apart</b>; ~$624M public estimate ($565.4M at dataset prices).</li>
+    <li><b>Nomad</b> (1 Aug 2022): <b>382 releases in 167 transactions</b> by <b>279 recipients</b>, 9 tokens, <b>$159.6M</b> dataset USD, over ~2.5 hours. Copycats reused only 14 distinct message ids (id 4922 appears 279 times).</li>
+  </ul>
+  <h3>Who feels it</h3>
+  <p>Bridge operators and their security teams; exchanges and custodians that rely on bridged assets; compliance, forensics and analytics firms; auditors and insurers. (Intended users from our analysis; not yet validated through interviews.)</p>
+</section>
+
+<!-- 2 SOLUTION -->
+<section>
+  <h2><small>02 · Solution</small>Check the one thing every exploit has in common</h2>
+  <p><b>BridgeWitness is the CSB-01 dashboard first.</b> It ingests a bridge transaction feed (a replayed public dataset, a simulated attack replay, or a live local chain), runs three detectors on every release, and raises one risk-scored alert that names the suspected exploit and shows its reasons.</p>
+  <h3>The three signals the brief asks for</h3>
+  <table>
+    <tr><th>Signal</th><th>In plain words</th><th>Role</th></tr>
+    <tr><td><b>Mismatched deposit/withdrawal pairs</b><br><span class="small">Conservation Ledger</span></td><td>A bridge is a vault with two doors: money may leave the far door only if the same amount, for the same person, came in through the near door. We check that for every release, in exact 256-bit integers.</td><td>Decides: may trigger a hold</td></tr>
+    <tr><td><b>Volume spikes</b><br><span class="small">Velocity detector</span></td><td>A smoke alarm for bursts of releases on one route (5-minute count, 5-minute vs 1-hour rate, volume vs the 24-hour median). Threshold fixed on pre-attack data only.</td><td>Advises: ranks, never holds</td></tr>
+    <tr><td><b>Unusual signer behaviour</b><br><span class="small">Signer forensics</span></td><td>Unknown or too few signers, duplicates; the same signer set co-signing a burst; valid signatures on a release nobody paid for (the Ronin pattern).</td><td>Rules decide; behaviour advises</td></tr>
+  </table>
+  <h3>The alert</h3>
+  <p>Every alert carries a <b>risk score 0–100 with its arithmetic shown</b> and a <b>suspected exploit type</b>: fake deposit, signature forgery, validator-key compromise, unbacked release, message replay, mismatched pair, liquidity drain (incident level), or an advisory volume/signer anomaly. The score is <span class="mono">clamp(base(type) + min(15, 3·log10 USD) + campaign ≤ 5) × evidence completeness</span>: a ranking, not a probability.</p>
+  <h3>Beyond detection: what we add</h3>
+  <ul>
+    <li><b>Hold before funds move</b> (pre-execution gate) with scope that widens only as evidence demands.</li>
+    <li><b>Evidence that anyone can re-run</b>: each verdict ships as a bundle your browser re-verifies.</li>
+    <li><b>Honesty about blind spots</b>: missing data yields <span class="mono">unknown</span>, never a false alarm.</li>
+  </ul>
+  <h3>Three demo feeds, one engine</h3>
+  <table>
+    <tr><th>Feed</th><th>What it shows</th><th>Data</th></tr>
+    <tr><td><b>Simulated attack replay</b></td><td>The brief's demo: fake deposit, signature forgery, replay, stolen-key liquidity drain, two mismatched pairs, plus two controls that must not raise an exploit alert</td><td><span class="tag syn">synthetic · seed 2410</span></td></tr>
+    <tr><td><b>Nomad and Ronin replays</b></td><td>The 2022 exploits on a virtual clock; Nomad's 382 alerts collapse into one incident</td><td><span class="tag ok">real · XChainWatcher</span></td></tr>
+    <tr><td><b>Live local chains</b></td><td>A compromised validator signs a release with no deposit; the gate holds it while a healthy route settles exactly 25 units</td><td><span class="tag plan">reference run · local only</span></td></tr>
+  </table>
+</section>
+
+<!-- 3 IMPACT -->
+<section>
+  <h2><small>03 · Impact and benefits</small>What changes for the people defending a bridge</h2>
+  <div class="cols">
+    <div class="card"><h3>Earlier, mechanism-independent detection</h3><p>The backing check does not care <i>how</i> the attacker got in: stolen keys, a verification bug or a fake deposit all produce a release with no matching deposit. On the Nomad replay it flags the first release (+0 s); the volume detector needed +2,986 s.</p></div>
+    <div class="card"><h3>Fewer, better alerts</h3><p>382 Nomad violations become <b>one incident</b> with live USD exposure and a copycat signal, instead of 382 pages. Missing data becomes <span class="mono">unknown</span>, not a false accusation. Advisory signals cannot hold funds.</p></div>
+    <div class="card"><h3>A smaller blast radius</h3><p>The counterfactual replays Nomad under response policies. At 0 s latency, holding the attacked routes limits loss to <b>13.2%</b>, adaptive scope to <b>7.0%</b>, and freezing the whole bridge to <b>5.8%</b>. At 15 minutes, holding routes alone fails (<b>65.8%</b>), which is why scope must escalate to the shared verifier. We show our narrow policy losing where it should.</p></div>
+    <div class="card"><h3>Trust you can check</h3><p>Operators, auditors and regulators do not have to believe our alert. They re-run it: header hash, Merkle proofs, accounting rule and SHA-256, all in the browser. Change one wei and verification fails.</p></div>
+  </div>
+  <h3>Counterfactual loss, Nomad (share of dataset USD lost)</h3>
+  <table>
+    <tr><th>Response latency</th><th class="n">Pause whole bridge</th><th class="n">Hold attacked routes</th><th class="n">Adaptive scope</th></tr>
+    <tr><td>0 s</td><td class="n">5.8%</td><td class="n">13.2%</td><td class="n">7.0%</td></tr>
+    <tr><td>60 s</td><td class="n">10.1%</td><td class="n">17.7%</td><td class="n">11.5%</td></tr>
+    <tr><td>15 min</td><td class="n">10.4%</td><td class="n">65.8%</td><td class="n">33.8%</td></tr>
+  </table>
+  <div class="callout warn"><b>Read this carefully.</b> These are estimates under a replay model: attackers are assumed to behave the same after a hold, and detection is assumed to fire on the first unbacked release. USD is the dataset's historical value, not a live price. They are <b>not</b> funds recovered, and we do not claim "funds saved".</div>
+  <h3>Who benefits, and how (intended)</h3>
+  <ul>
+    <li><b>Bridge security teams:</b> an independent second opinion that cannot be silenced by the bridge's own trust set, with a hold they control.</li>
+    <li><b>Exchanges and custodians:</b> an early, explainable signal on the bridged assets they accept.</li>
+    <li><b>Analytics, forensics and compliance:</b> evidence bundles that can be handed to a third party and independently reproduced.</li>
+    <li><b>Auditors and insurers:</b> a standard, checkable record of what was released against what was deposited.</li>
+  </ul>
+</section>
+
+<!-- 4 FEATURES -->
+<section>
+  <h2><small>04 · Key features</small>What the prototype does today</h2>
+  <table>
+    <tr><th>Feature</th><th>What you can do</th><th>Status</th></tr>
+    <tr><td><b>Monitor dashboard</b></td><td>Pick a feed, play at 1–300×, seek on an event-density scrubber; three signal panels, alert queue, incidents, transaction stream with explorer links</td><td><span class="tag ok">working</span></td></tr>
+    <tr><td><b>Risk-scored alerts</b></td><td>Score breakdown, suspected exploit type, every reason shown; "hold-eligible" vs "advisory" is explicit</td><td><span class="tag ok">working</span></td></tr>
+    <tr><td><b>Conservation Ledger playground</b></td><td>Edit a release (one wei too many, replay, wrong recipient, 20-part salami) and watch the real rule respond</td><td><span class="tag ok">working</span></td></tr>
+    <tr><td><b>Cross-chain flow graph (3D)</b></td><td>575 releases as edges between Moonbeam message commitments and Ethereum beneficiaries by token; a "no deposit" node; fan-out ranking (id 4922 → 279 releases); inspector</td><td><span class="tag ok">working · Nomad data</span></td></tr>
+    <tr><td><b>Evidence library and verifier</b></td><td>12 bundles; collapsible tree with violating fields marked; in-browser verification; tamper mode with diff</td><td><span class="tag ok">working</span></td></tr>
+    <tr><td><b>Counterfactual theatre</b></td><td>Five response policies, log latency slider (0 s to 6 days), Nomad/Ronin toggle, loss vs containment breadth</td><td><span class="tag ok">working</span></td></tr>
+    <tr><td><b>Witness bridge (3D)</b></td><td>Towers, threads and gates; all six verdict states; alert takeover on the first violation</td><td><span class="tag ok">working</span></td></tr>
+    <tr><td><b>Watermarks and <span class="mono">unknown</span></b></td><td>Per-chain observation cursor; "Blind the source RPC" turns new releases into <span class="mono">unknown</span>, not alarms</td><td><span class="tag syn">preview constants</span></td></tr>
+    <tr><td><b>Incident correlation</b></td><td>Nomad: one incident, 382 violations, 279 recipients, scope escalating to the verifier at +2,986 s</td><td><span class="tag syn">preview config</span></td></tr>
+    <tr><td><b>Attack tests (12 attacks)</b></td><td>Each attack runs through the real rule in the browser on a simulated bridge and is compared with its expected verdict; attack #1 also shows the real local-chain result; "Run all 12" scores them</td><td><span class="tag syn">demo · live-chain launch pending</span></td></tr>
+    <tr><td><b>USP demos page</b></td><td>One interactive demo per USP: proof of non-deposit, evidence re-check, unknown-vs-false-alarm, hold-before-execution gate, what-if responses, incident grouping, self-attack test</td><td><span class="tag syn">demo · tagged real vs simulated</span></td></tr>
+    <tr><td><b>Eval and model card</b></td><td>The three signals measured on the datasets; advisory ML card; engine latency</td><td><span class="tag ok">working</span> · baselines <span class="tag plan">pending</span></td></tr>
+    <tr><td><b>Docs</b></td><td>Evidence spec (schema, verdicts, hashing, procedure, trust boundary) and architecture</td><td><span class="tag ok">working</span></td></tr>
+  </table>
+  <p class="small">Prototype status: frontend only, running in fixture mode. 14 pages. No backend, live stream or database yet. Demos run in the browser on simulated data and are labelled as such.</p>
+</section>
+
+<!-- 5 USPs -->
+<section>
+  <h2><small>05 · Unique selling points</small>Seven capabilities on top of the brief, each with a working demo</h2>
+  <p>The backing invariant itself is established prior art (XChainWatcher, Count of Monte Crypto, Wormhole's Global Accountant) and we cite it. What follows is our engineering combination, honestly labelled by maturity: <b>real</b> (works on real data) or <b>demo</b> (works in your browser on simulated data).</p>
+  <table>
+    <tr><th>#</th><th>USP</th><th>In plain words</th><th>Maturity</th></tr>
+    <tr><td class="num">01</td><td><b>Proof of Non-Deposit</b></td><td>Not "our indexer saw nothing": a Merkle proof from the source chain's own state that the deposit slot is empty</td><td><span class="tag syn">demo · simulated bridge</span></td></tr>
+    <tr><td class="num">02</td><td><b>Re-executable evidence</b></td><td>Every alert is a file your browser re-checks, down to one trusted block header; one changed wei fails</td><td><span class="tag ok">working · 12/12</span></td></tr>
+    <tr><td class="num">03</td><td><b>Watermarked verdicts</b></td><td>"Rule broken" and "cannot see yet" are different answers; RPC lag never produces a false exploit alert</td><td><span class="tag syn">demo · simulated feed</span></td></tr>
+    <tr><td class="num">04</td><td><b>Pre-execution gate, adaptive scope</b></td><td>Releases wait in a short window; a violation is held before funds move; the hold widens message → route → shared verifier only when evidence demands</td><td><span class="tag syn">demo · route hold also proven on local chains</span></td></tr>
+    <tr><td class="num">05</td><td><b>Counterfactual response analysis</b></td><td>Replays a real exploit under five response policies and shows the loss for each</td><td><span class="tag ok">working</span></td></tr>
+    <tr><td class="num">06</td><td><b>Incident correlation</b></td><td>Hundreds of violations become one incident with live exposure and a copycat signal</td><td><span class="tag syn">preview</span></td></tr>
+    <tr><td class="num">07</td><td><b>Adversarial self-evaluation</b></td><td>We attack our own monitor (congestion, RPC gaps, a lying indexer) and compare against whale-alert and z-score baselines</td><td><span class="tag syn">demo · 12 of 12 match</span></td></tr>
+  </table>
+  <h3>Design principles behind them</h3>
+  <ol>
+    <li><b>Invariants decide; ML advises.</b> Only a deterministic rule violation can trigger containment. The ML model (recall 2.34%, 9 of 384 held-out; ROC AUC 0.982 on its raw score) is advisory only and not used for decisions.</li>
+    <li><b>Every verdict carries its evidence.</b></li>
+    <li><b>Blind spots are named:</b> missing data means <span class="mono">unknown</span>, never "attack" and never "fine".</li>
+    <li><b>Smallest sufficient intervention</b>, recorded with its evidence hash.</li>
+    <li><b>No inflated claims.</b> A priority is a ranking; AUC is not accuracy; USD has a stated source.</li>
+  </ol>
+</section>
+
+<!-- 6 FEASIBILITY -->
+<section class="tight">
+  <h2><small>06 · Feasibility and viability</small>Built on working parts, with the gaps stated</h2>
+  <h3>Technical feasibility: what already works</h3>
+  <ul>
+    <li><b>Reference engine (Python):</b> exact accounting, SQLite WAL ledger with idempotent ingest and reorg rebuild, Merkle-Patricia receipt/transaction proofs, finalized contiguous scanner; <b>55 tests passing</b>.</li>
+    <li><b>Live demonstration (local):</b> two Ganache chains; a compromised-validator release held before execution; a healthy route settling exactly 25 units; 0 public-chain transactions.</li>
+    <li><b>Performance (local, measured):</b> p50 <b>0.82 ms</b>, p99 <b>2.6 ms</b> per deposit + release pair (SQLite FULL commit, excludes HTTP/RPC; hardware-specific).</li>
+    <li><b>Frontend:</b> React, three.js, TypeScript; the in-browser verifier matches Python on all 12 reference bundles; every number comes from a script that fails on drift.</li>
+    <li><b>Data:</b> public, MIT-licensed XChainWatcher datasets, pinned by SHA-256.</li>
+  </ul>
+  <h3>What remains to build (and the plan)</h3>
+  <table>
+    <tr><th>Gap</th><th>Plan</th><th>Risk</th></tr>
+    <tr><td>Backend API and live stream</td><td>Port the TS detectors to Python; FastAPI with SSE; single-writer engine</td><td>Low: reference engine and API already exist</td></tr>
+    <tr><td>Proof of Non-Deposit in bundles</td><td>Productise the verified spike (<span class="mono">eth_getProof</span>, exclusion proof) and add the bundle field</td><td>Medium: works for bridges that store deposits in state; others fall back to watermark mode, stated in the bundle</td></tr>
+    <tr><td>Optimistic gate and verifier-wide hold</td><td>Extend the demo contracts (<span class="mono">holdWithEvidence</span>, <span class="mono">resolve</span>)</td><td>Medium: needs contract changes; contracts are unaudited demos</td></tr>
+    <tr><td>Evaluation and baselines</td><td>Seeded fault injector (S0–S7), baselines B1–B3, ablation, one results file</td><td>Low</td></tr>
+    <tr><td>Public-network adapter</td><td>Testnet first (Sepolia / Base Sepolia), then production bridge formats</td><td>Higher: per-bridge adapters and RPC coverage; finality is an RPC assumption</td></tr>
+  </table>
+  <h3>Operational viability</h3>
+  <ul>
+    <li><b>Light footprint:</b> consumes finalized blocks and receipts over standard RPC; one writer process; millisecond-scale decisions.</li>
+    <li><b>Independent of the bridge's trust set:</b> it reads public chain data, so it can be deployed by an operator, a third-party monitor or an analytics firm.</li>
+    <li><b>Safe by construction:</b> volume and ML signals can rank but never hold; holds are scoped, evidence-linked and need an explicit resolution to lift.</li>
+  </ul>
+  <h3>Business viability (proposed, not yet validated)</h3>
+  <ul>
+    <li><b>Possible models:</b> monitoring-as-a-service per bridge route; an enterprise integration for analytics and compliance platforms (the evidence bundle is the product); open-source verifier with a paid hosted monitor.</li>
+    <li><b>Why it could hold:</b> checkable evidence is hard to copy by assertion; an open bundle format creates trust and adoption; the hold feature serves operators' response needs.</li>
+    <li><b>Not done:</b> customer interviews, pricing or revenue modelling. We make no market-size claims.</li>
+  </ul>
+  <div class="callout bad"><b>Key risks.</b> (1) The backing check needs complete source-chain coverage; with gaps it says <span class="mono">unknown</span> by design. (2) Finality is an RPC assumption until a light client anchors it. (3) Each production bridge needs its own adapter; liquidity and intent bridges are out of the current route model. (4) Attackers may adapt after a hold. (5) Public datasets lack signer data, so signer signals are demonstrated on simulated and local-chain data.</div>
+</section>
+
+<!-- 7 STANDOUT -->
+<section>
+  <h2><small>07 · What makes us stand out</small>Five things, each backed by something you can run</h2>
+  <table>
+    <tr><th>#</th><th>Differentiator</th><th>Proof in the prototype</th></tr>
+    <tr><td class="num">1</td><td><b>It answers the brief fully, then goes further.</b> All three requested signals, risk-scored alerts with the suspected exploit type, a replayed public dataset and a simulated attack replay.</td><td>Monitor page; requirement checklist in the PRD (§A) and on the landing page</td></tr>
+    <tr><td class="num">2</td><td><b>It measures the alternatives, honestly.</b> We show where volume detection is late (+2,986 s, $23.6M gone on Nomad) or silent (0/2 on Ronin), instead of assuming it works.</td><td>Eval page; fixture assertions</td></tr>
+    <tr><td class="num">3</td><td><b>Alerts that prove themselves.</b> The judge's browser re-runs the verdict; tampering one wei is caught and shown as a diff.</td><td>Evidence page and USP demo 02; 12/12 golden bundles</td></tr>
+    <tr><td class="num">4</td><td><b>It enforces, not just alerts.</b> A release with no deposit is held before execution on the local chains, while a healthy route keeps settling; scope is chosen by evidence and measured on Nomad.</td><td>Attack tests (#1 and the gate demo); What-if page</td></tr>
+    <tr><td class="num">5</td><td><b>It is honest by construction.</b> <span class="mono">unknown</span> instead of false alarms, ML kept advisory, non-claims on every page, synthetic and pending items labelled, numbers generated by code.</td><td>Footer non-claims; PROGRESS.md claims register</td></tr>
+  </table>
+  <h3>How this differs from existing approaches (from public material; not an audit of their internals)</h3>
+  <table>
+    <tr><th>Approach</th><th>Where it stops</th><th>What we add</th></tr>
+    <tr><td>Validator quorum / multisig</td><td>Stolen keys sign validly</td><td>Backing check independent of signatures</td></tr>
+    <tr><td>Rate limits and volume rules</td><td>Late, or defeated by splitting the theft</td><td>Exact accounting; volume only advises</td></tr>
+    <tr><td>Research reconciliation (XChainWatcher, Monte Crypto)</td><td>Offline or alert-only</td><td>Live replay, pre-execution hold, browser-verifiable evidence</td></tr>
+    <tr><td>Commercial monitors</td><td>Closed evidence that cannot be independently checked</td><td>Re-executable bundles with an explicit trust boundary</td></tr>
+    <tr><td>Protocol-native conservation (e.g. Wormhole Global Accountant)</td><td>Works only inside its own ecosystem</td><td>An independent witness across bridges</td></tr>
+  </table>
+  <div class="callout"><b>Positioning.</b> We do not claim to predict hacks. We refuse to execute what has no backing, and we show the proof. We position this as an engineering combination validated by adversarial testing, not as a new academic result.</div>
+</section>
+
+<!-- 8 EVIDENCE + LIMITS -->
+<section>
+  <h2><small>08 · Evidence, synthetic items and limits</small>What is real, what is synthetic, what is not built</h2>
+  <h3>Measured results</h3>
+  <table>
+    <tr><th>Finding</th><th class="n">Result</th><th>Source</th></tr>
+    <tr><td>Backing rule on Nomad exploit releases</td><td class="n">382 / 382, from +0 s</td><td>TS port over dataset rows</td></tr>
+    <tr><td>Backing rule on matched Nomad transfers</td><td class="n">0 / 4,482 flagged</td><td>same</td></tr>
+    <tr><td>Backing rule on Ronin exploit releases</td><td class="n">2 / 2</td><td>same</td></tr>
+    <tr><td>Volume detector on Nomad</td><td class="n">first flag +2,986 s; 314 / 382 eventually</td><td>velocity port</td></tr>
+    <tr><td>Loss before first volume flag (Nomad)</td><td class="n">$23,591,072 (14.8%)</td><td>dataset USD</td></tr>
+    <tr><td>Volume detector on Ronin</td><td class="n">0 / 2</td><td>velocity port</td></tr>
+    <tr><td>Volume false alarms, normal traffic</td><td class="n">3.1% Nomad · 1.5% Ronin</td><td>velocity port</td></tr>
+    <tr><td>Simulated replay: attacks typed correctly</td><td class="n">6 / 6; 2 / 2 controls: no exploit alert</td><td>fixture assertions</td></tr>
+    <tr><td>Simulated replay: advisory volume false alarms</td><td class="n">6 / 101 background</td><td>velocity port</td></tr>
+    <tr><td>Browser verifier equals Python</td><td class="n">12 / 12 bundles</td><td>golden test</td></tr>
+    <tr><td>Engine latency (local)</td><td class="n">p50 0.82 ms · p99 2.6 ms</td><td>reference benchmark</td></tr>
+    <tr><td>ML model (advisory)</td><td class="n">recall 2.34% (9/384) · FPR 0.44% · AUC 0.982</td><td>reference evaluation</td></tr>
+  </table>
+  <div class="cols">
+    <div class="card"><h3>Synthetic or preview in the prototype</h3>
+      <ul class="small" style="color:var(--text)">
+        <li><b>Simulated attack replay:</b> 130 releases (101 background, 19 attack, 10 control); background resampled from real Ronin transfers; validators and signatures fabricated.</li>
+        <li><b>Signer signals:</b> simulated feed and local chains only; Nomad/Ronin data has no signers.</li>
+        <li><b>Nomad/Ronin verdicts:</b> computed by our TypeScript port of the rule, not yet by the backend.</li>
+        <li><b>Observer lag, SLA, incident window, copycat thresholds:</b> placeholder constants.</li>
+        <li><b>Live bridge results:</b> one reference run on local, unaudited demo chains.</li>
+        <li><b>USP demos and the 12 attacks:</b> simulated bridge, invented deposits and addresses; the checking rule and the proof mechanics are real. Reorg handling, the early-release rule and the overdue timer are a thin engine layer, labelled on screen.</li>
+      </ul></div>
+    <div class="card"><h3>Not built yet</h3>
+      <ul class="small" style="color:var(--text)">
+        <li>Backend API, live stream, database</li>
+        <li>Proof of Non-Deposit from a real chain (demo uses a simulated one)</li>
+        <li>On-chain optimistic gate and verifier-wide hold; launching attacks on real chains</li>
+        <li>Scenarios S0–S7, baselines B1–B3, ablation</li>
+        <li>Public-testnet adapter, light-client finality</li>
+      </ul></div>
+  </div>
+  <div class="callout warn"><b>Circularity, stated openly.</b> Nomad's attack labels come from XChainWatcher's own matching rules, so reproducing them shows our implementation is correct, not independent detection power. Planned mitigations: a clean-room matcher diffed against the paper's unmatched-withdrawals file, injected scenarios, and the XScope incident catalog.</div>
+  <p class="small"><b>Data and licence.</b> Nomad and Ronin CSVs: XChainWatcher (Augusto et al., arXiv 2410.02029), © 2024 André Augusto, MIT License, commit 4cc1ff1, pinned by SHA-256. USD values are the dataset's historical <span class="mono">value_usd</span>. The demo runs on local chains with unaudited contracts; no public-network funds are involved. Words we do not use: "100% accurate", "AI-powered", "funds saved".</p>
+</section>
+</body>
+</html>

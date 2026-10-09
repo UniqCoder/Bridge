@@ -1,0 +1,34 @@
+{
+  "repository": "AndreAugusto11/XChainWatcher",
+  "commit": "4cc1ff173c18f80d275d7af6cbd318cdd3906e77",
+  "files": {
+    "nomad_normal": {
+      "path": "nomad_normal.csv",
+      "sha256": "a1b40d21c3d6e446f3d1f97e54830d2ce61cff335fd7421158e0af042b74fd02",
+      "url": "https://raw.githubusercontent.com/AndreAugusto11/XChainWatcher/4cc1ff173c18f80d275d7af6cbd318cdd3906e77/cross-chain-rules-validator/analysis/nomad-bridge/data/cctxs_withdrawals.csv"
+    },
+    "nomad_attack": {
+      "path": "nomad_attack.csv",
+      "sha256": "23f3e8f0cb1687833fd8e20088b644b2f00c87253e37ef1da8ea5acb40bc0503",
+      "url": "https://raw.githubusercontent.com/AndreAugusto11/XChainWatcher/4cc1ff173c18f80d275d7af6cbd318cdd3906e77/cross-chain-rules-validator/analysis/nomad-bridge/data/attacks.csv"
+    },
+    "ronin_normal": {
+      "path": "ronin_normal.csv",
+      "sha256": "36b1dc12459dfe93b8896108a641baffe651c90f329c426357db5e98ec6de73d",
+      "url": "https://raw.githubusercontent.com/AndreAugusto11/XChainWatcher/4cc1ff173c18f80d275d7af6cbd318cdd3906e77/cross-chain-rules-validator/analysis/ronin-bridge/data/cctxs_withdrawals.csv"
+    },
+    "ronin_attack": {
+      "path": "ronin_attack.csv",
+      "sha256": "47b442b01943b3881aaf7cf860806e6aa76d8687a39f13c6a2a90211292a2987",
+      "url": "https://raw.githubusercontent.com/AndreAugusto11/XChainWatcher/4cc1ff173c18f80d275d7af6cbd318cdd3906e77/cross-chain-rules-validator/analysis/ronin-bridge/data/attacks.csv"
+    },
+    "license": {
+      "path": "license.txt",
+      "sha256": "5b0c801cfdddd7fb30ab06dfd8009b84b4b408cda7c667373b5901058dec0000",
+      "url": "https://raw.githubusercontent.com/AndreAugusto11/XChainWatcher/4cc1ff173c18f80d275d7af6cbd318cdd3906e77/LICENSE"
+    }
+  },
+  "negative_label": "matched_transfer_proxy_not_independent_security_audit",
+  "attack_labels": "paper_authors_historical_attack_annotations",
+  "contains_raw_receipt_proofs": false
+}
