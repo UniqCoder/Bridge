@@ -3,7 +3,7 @@
 param([string]$Out, [string]$Base = "http://localhost:5180")
 $edge = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 $pages = [ordered]@{
-  landing   = "/|1440,2900";
+  landing   = "/|1440,900";
   live      = "/console/live?feed=nomad&t=1659393500|1440,1500";
   map       = "/console/map?t=1659393500|1440,1000";
   budget    = "/console/budget|1440,1300";
