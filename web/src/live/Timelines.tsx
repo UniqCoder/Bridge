@@ -10,18 +10,18 @@ type Spec = { title: string; note: string; series: { label: string; color: strin
   scales?: uPlot.Scales; axes?: uPlot.Axis[]; hline?: { y: number; label: string; scale?: string } };
 
 export const CHARTS: Spec[] = [
-  { title: 'Conservation ledger', note: 'value released with a deposit behind it vs without (USD, cumulative)',
+  { title: 'Money in vs money out', note: 'payouts with a deposit behind them vs without (USD, running total)',
     series: [
-      { label: 'backed', color: '#2fd4b5', get: (k) => k.backed_usd, fill: 'rgba(47,212,181,0.08)' },
-      { label: 'unbacked (gap)', color: '#ff6a3d', get: (k) => k.unbacked_usd, fill: 'rgba(255,106,61,0.14)' }] },
-  { title: 'Contagion radar', note: 'largest copy-paste cluster · Hawkes branching ratio n̂ (spread; ≈1 = self-sustaining)',
+      { label: 'has a deposit', color: '#2fd4b5', get: (k) => k.backed_usd, fill: 'rgba(47,212,181,0.08)' },
+      { label: 'no deposit', color: '#ff6a3d', get: (k) => k.unbacked_usd, fill: 'rgba(255,106,61,0.14)' }] },
+  { title: 'Is the attack spreading?', note: 'copycats in the biggest cluster, and attack spread (1.0 = keeps going on its own)',
     series: [
-      { label: 'cluster size', color: '#ff6a3d', get: (k) => k.cluster_max },
-      { label: 'n̂', color: '#e3b04b', get: (k) => k.hawkes_n, scale: 'n' }],
+      { label: 'copycats', color: '#ff6a3d', get: (k) => k.cluster_max },
+      { label: 'spread', color: '#e3b04b', get: (k) => k.hawkes_n, scale: 'n' }],
     scales: { n: { range: [0, 3.2] } } },
-  { title: 'Accusation budget', note: 'e-CUSUM evidence (log₁₀). Alarm at 3 = average ≥ 1,000 normal releases per false alarm',
-    series: [{ label: 'log₁₀ evidence', color: '#e3b04b', get: (k) => (k.ecusum > 0 ? Math.log10(k.ecusum) : 0) }],
-    scales: { y: { range: [-1, 6] } }, hline: { y: 3, label: 'alarm' } },
+  { title: 'Alarm evidence', note: 'builds up as unusual payouts pile up; crossing the line is an alarm (about one false alarm per 1,000 normal payouts)',
+    series: [{ label: 'evidence', color: '#e3b04b', get: (k) => (k.ecusum > 0 ? Math.log10(k.ecusum) : 0) }],
+    scales: { y: { range: [-1, 6] } }, hline: { y: 3, label: 'alarm line' } },
 ];
 
 function fmtUsd(v: number) { return v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(0)}k` : `$${v.toFixed(0)}`; }

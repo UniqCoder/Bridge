@@ -36,7 +36,7 @@
 .ac-type strong { font: 600 16px var(--sans); }
 .ac-type p { margin: 4px 0 0; font-size: 13px; }
 .ac-prec { color: var(--text-2); }
-.ac-facts { display: grid; grid-template-columns: 70px 1fr; gap: 4px 10px; margin: 0; font-size: 13px; }
+.ac-facts { display: grid; grid-template-columns: 96px 1fr; gap: 4px 10px; margin: 0; font-size: 13px; }
 .ac-facts dt { font: 10px var(--mono); color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; padding-top: 2px; }
 .ac-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .bad { color: var(--violation); } .ok { color: var(--verified); } .warn { color: var(--pending); }

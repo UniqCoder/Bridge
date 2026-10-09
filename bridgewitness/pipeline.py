@@ -295,6 +295,9 @@ def counterfactual(ev, sp):
 def to_replay(name, ev, sp, feats):
     t0, t1 = sp["window"]
     win = ev[(ev.ts >= t0) & (ev.ts < t1)]
+    deps = ev[ev.kind == "deposit"]
+    dep_by_id = {r.event_id: r for r in deps.itertuples()}
+    by_token = {k: g for k, g in deps.groupby("token")}
     rec = []
     for i, r in win.iterrows():
         d = {"id": r.event_id, "ts": int(r.ts), "kind": r.kind, "tx": r.tx, "symbol": r.symbol,
@@ -302,6 +305,18 @@ def to_replay(name, ev, sp, feats):
              "msg_id": str(r.msg_id), "recipient": r.recipient, "truth": r.truth,
              "scenario": r.get("scenario") if isinstance(r.get("scenario"), str) else None}
         if r.kind == "withdrawal":
+            # Plain facts a reader can re-check: what the full deposit history contains for this release.
+            past = by_token.get(r.token)
+            past = past[past.ts <= r.ts] if past is not None else deps.iloc[0:0]
+            m = dep_by_id.get(r.matched) if isinstance(r.matched, str) else None
+            d["deposit"] = None if m is None else {"tx": m.tx, "ts": int(m.ts), "amount": str(m.amount),
+                                                   "recipient": m.recipient, "msg_id": str(m.msg_id)}
+            d["search"] = {"deposits_checked": int(len(past)),
+                           "since": int(past.ts.min()) if len(past) else None,
+                           "same_amount_and_recipient": int(((past.amount == r.amount) & (past.recipient == r.recipient)).sum()),
+                           "same_amount_other_recipient": int(((past.amount == r.amount) & (past.recipient != r.recipient)).sum()),
+                           "same_recipient_other_amount": int(((past.amount != r.amount) & (past.recipient == r.recipient)).sum()),
+                           "same_message_id": int((past.msg_id == r.msg_id).sum())}
             d.update({"status": r.status, "rule": r.rule, "matched": r.matched,
                       "delay": None if pd.isna(r.delay) else int(r.delay),
                       "window": [int(r.win_lo), int(min(r.win_hi, 10**9))],
@@ -334,6 +349,28 @@ def to_replay(name, ev, sp, feats):
             "src": FEEDS.get(name, FEEDS["ronin"])["src"], "dst": "Ethereum", "events": rec, "ticks": ticks}
 
 
+def signer_dna(sg):
+    """Facts about the real Ronin validators recovered from calldata (4,200 sampled normal withdrawals + the 2 attacks)."""
+    from collections import Counter
+    from .signers import ATTACK_SIGNERS
+    n = sg[~sg.is_attack]
+    sets = n.signers.map(lambda s: ",".join(sorted(s.split(","))))
+    atk = ",".join(sorted(ATTACK_SIGNERS))
+    cnt = Counter(x for s in n.signers for x in s.split(","))
+    validators = sorted(set(cnt) | set(ATTACK_SIGNERS))
+    ids = n.withdrawal_id.astype(int)
+    return {
+        "normal_sampled": int(len(n)),
+        "validators": [{"addr": v, "participation": round(cnt[v] / len(n), 3), "signed_attack": v in ATTACK_SIGNERS} for v in validators],
+        "attack_quorum_seen_in_normal": int((sets == atk).sum()),
+        "attack_quorum_share": round(float((sets == atk).mean()), 4),
+        "distinct_quorums": int(sets.nunique()),
+        "quorum_size": {str(k): int(v) for k, v in n.n_signers.value_counts().sort_index().items()},
+        "normal_id_min": int(ids.min()), "normal_id_max": int(ids.max()),
+        "attack_ids": [int(x) for x in sg[sg.is_attack].withdrawal_id.sort_values()],
+    }
+
+
 def main():
     t_all = time.time()
     ART.mkdir(exist_ok=True)
@@ -359,7 +396,7 @@ def main():
     typer = ExploitTyper().fit(X, y)
     print("ML3", typer.report)
 
-    metrics = {"generated_at": int(time.time()), "seed": SEED, "ecusum_threshold": ECUSUM_C,
+    metrics = {"signer_dna": signer_dna(signers), "generated_at": int(time.time()), "seed": SEED, "ecusum_threshold": ECUSUM_C,
                "ml1_delay_cqr": delay.report, "ml3_exploit_typer": typer.report, "feeds": {}}
     for name in feeds:
         ev, feats, auth = run_feed(name, feeds[name], delay, signers, typer)

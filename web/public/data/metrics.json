@@ -1,5 +1,71 @@
 {
- "generated_at": 1791548153,
+ "signer_dna": {
+  "normal_sampled": 4200,
+  "validators": [
+   {
+    "addr": "0x11360eacdedd59bc433afad4fc8f0417d1fbebab",
+    "participation": 1.0,
+    "signed_attack": true
+   },
+   {
+    "addr": "0x1a15a5e25811fe1349d636a5053a0e59d53961c9",
+    "participation": 1.0,
+    "signed_attack": true
+   },
+   {
+    "addr": "0x70bb1fb41c8c42f6ddd53a708e2b82209495e455",
+    "participation": 1.0,
+    "signed_attack": true
+   },
+   {
+    "addr": "0x9d5d175c7d7dfdc7038420eb2725d4601a41b751",
+    "participation": 0.704,
+    "signed_attack": false
+   },
+   {
+    "addr": "0xb9e59d56fd1632fc250935182bdd5c59188b2302",
+    "participation": 0.732,
+    "signed_attack": true
+   },
+   {
+    "addr": "0xd11d9842babd5209b9b1155e46f5878c989125b7",
+    "participation": 0.696,
+    "signed_attack": false
+   },
+   {
+    "addr": "0xe70cbf18114822c0e32c6b35d2478f02a8ac78a9",
+    "participation": 0.577,
+    "signed_attack": false
+   },
+   {
+    "addr": "0xee11d2016e9f2fae606b2f12986811f4abbe6215",
+    "participation": 0.718,
+    "signed_attack": false
+   },
+   {
+    "addr": "0xf224beff587362a88d859e899d0d80c080e1e812",
+    "participation": 0.999,
+    "signed_attack": true
+   }
+  ],
+  "attack_quorum_seen_in_normal": 276,
+  "attack_quorum_share": 0.0657,
+  "distinct_quorums": 34,
+  "quorum_size": {
+   "5": 795,
+   "6": 639,
+   "7": 499,
+   "8": 519,
+   "9": 1748
+  },
+  "normal_id_min": 1029086,
+  "normal_id_max": 1064238,
+  "attack_ids": [
+   2000000,
+   2000001
+  ]
+ },
+ "generated_at": 1791549004,
  "seed": 2410,
  "ecusum_threshold": 1000.0,
  "ml1_delay_cqr": {

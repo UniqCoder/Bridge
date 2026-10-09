@@ -1,19 +1,12 @@
-import { Suspense, useEffect } from 'react';
+import { Suspense } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import Lenis from 'lenis';
-import 'lenis/dist/lenis.css';
-import { ButtonLink, Logo, Tag } from '../design/ui';
-import { MODE, SOURCES } from '../data';
+import { ButtonLink, Logo } from '../design/ui';
 
-export const NON_CLAIMS = [
-  'Priority is a ranking with a visible breakdown, not a probability of exploit.',
-  "Inclusion and exclusion proofs verify against block headers supplied by our server; on local chains these can't be cross-checked externally.",
-  'Consensus finality is an RPC assumption; a light client is on the roadmap.',
-  "Nomad labels derive from XChainWatcher's matching rules; reproducing them validates implementation, not independent detection power.",
-  'Counterfactual figures assume attackers behave the same after a hold, and that detection fires on the first unbacked release. They are estimates, not recovered funds.',
-  "USD exposure uses the dataset's historical value_usd, not a live oracle.",
-  'The live demo runs on local chains with unaudited demo contracts; no public-network funds are involved.',
-  'Supported route model: lock/mint and burn/release with fixed fees. Liquidity and intent bridges need their own adapters.',
+const NOT_CLAIMED = [
+  'Two real hacks plus practice attacks show the idea works. They are not a promise for every future attack.',
+  'Only the deposit rule can say “exploit”. Statistics and machine learning rank and explain; they never accuse alone.',
+  'The reference answers come from XChainWatcher’s matching rules. We reproduce them; we did not discover the hacks independently.',
+  'Dollar values are the dataset’s historic prices. “Money kept” figures are estimates, not funds recovered.',
 ];
 
 export function Footer() {
@@ -22,20 +15,15 @@ export function Footer() {
       <div className="wrap footer-grid">
         <div className="stack" style={{ gap: 16 }}>
           <Logo />
-          <p className="t-body" style={{ fontSize: 14 }}>An independent witness and enforcement point for cross-chain bridges. Every release must consume a verified, unspent deposit, to the wei.</p>
-          <div className="row-wrap"><Tag kind="real">Built on real Nomad + Ronin data</Tag><Tag>{MODE} mode</Tag></div>
+          <p className="t-body" style={{ fontSize: 14 }}>Signatures can be stolen. Conservation can’t.</p>
         </div>
         <div className="stack">
           <span className="label">What we do not claim</span>
-          <ol className="nonclaims">{NON_CLAIMS.map((c) => <li key={c}>{c}</li>)}</ol>
+          <ol className="nonclaims">{NOT_CLAIMED.map((c) => <li key={c}>{c}</li>)}</ol>
         </div>
         <div className="stack">
-          <span className="label">Data &amp; licence</span>
-          <p className="dim" style={{ fontSize: 13 }}>
-            Nomad and Ronin CSVs from XChainWatcher (Augusto et al., arXiv 2410.02029), © 2024 André Augusto, MIT License.
-            Pinned by SHA-256: <a href="/THIRD_PARTY_NOTICES.txt">full notice</a>.
-          </p>
-          <ul className="sources">{SOURCES.map((s) => <li key={s.path} className="mono">{s.path.split('/').pop()} <span className="dim">{s.sha256.slice(0, 12)}…</span></li>)}</ul>
+          <span className="label">Data</span>
+          <p className="dim" style={{ fontSize: 13 }}>Nomad and Ronin transfers from XChainWatcher (Augusto et al., arXiv 2410.02029), MIT licence. Live feed: Across public API. <a href="/THIRD_PARTY_NOTICES.txt">Full notice</a>.</p>
         </div>
       </div>
     </footer>
@@ -43,34 +31,27 @@ export function Footer() {
 }
 
 export function SiteLayout({ notFound }: { notFound?: boolean }) {
-  useEffect(() => {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const lenis = new Lenis({ lerp: 0.1 });
-    let raf = requestAnimationFrame(function tick(t) { lenis.raf(t); raf = requestAnimationFrame(tick); });
-    return () => { cancelAnimationFrame(raf); lenis.destroy(); };
-  }, []);
   return (
     <div className="site">
       <header className="site-nav">
         <div className="wrap spread">
           <Link to="/" aria-label="BridgeWitness home"><Logo /></Link>
           <nav className="site-links" aria-label="Primary">
-            <NavLink to="/#capabilities">Capabilities</NavLink>
-            <NavLink to="/console/lab">USP demos</NavLink>
-            <NavLink to="/console/graph">Flow map</NavLink>
-            <NavLink to="/docs/evidence-spec">Evidence spec</NavLink>
-            <NavLink to="/docs/architecture">Architecture</NavLink>
+            <NavLink to="/console/live">Live console</NavLink>
+            <NavLink to="/console/usps">Our four ideas</NavLink>
+            <NavLink to="/console/evidence">Check it yourself</NavLink>
+            <NavLink to="/console/results">Results</NavLink>
+            <NavLink to="/docs/architecture">How it works</NavLink>
           </nav>
-          <ButtonLink to="/console/monitor" size="sm">Open dashboard</ButtonLink>
+          <ButtonLink to="/console/live" size="sm">Open the console</ButtonLink>
         </div>
       </header>
       <main>
         {notFound ? (
           <section className="wrap notfound">
-            <span className="label">404 · no such route</span>
-            <h1 className="t-h2">This page was never deposited.</h1>
-            <p className="t-body">Nothing backs this URL. Try the console or the evidence spec.</p>
-            <div className="row"><ButtonLink to="/">Back to the start</ButtonLink><ButtonLink to="/console/monitor" variant="line">Dashboard</ButtonLink></div>
+            <span className="label">404 · no such page</span>
+            <h1 className="t-h2">Nothing backs this address.</h1>
+            <div className="row"><ButtonLink to="/">Back to the start</ButtonLink><ButtonLink to="/console/live" variant="line">Open the console</ButtonLink></div>
           </section>
         ) : <Suspense fallback={<div className="page-loading label">Loading…</div>}><Outlet /></Suspense>}
       </main>

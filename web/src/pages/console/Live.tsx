@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AlertCard } from '../../live/AlertCard';
 import { LiveGraph } from '../../live/LiveGraph';
 import { CHARTS, Timeline } from '../../live/Timelines';
-import { FEEDS, TYPE_SHORT, useClock, useLive, useReplayData, useView, type Ev, type FeedId, type Replay } from '../../live/data';
+import { FEEDS, TYPE_SHORT, human, useClock, useLive, useReplayData, useView, type Ev, type FeedId, type Replay } from '../../live/data';
 import { usd, utc } from '../../lib/format';
 import '../../live/live.css';
 
@@ -15,7 +15,7 @@ export default function Live() {
   const setFeed = (f: FeedId) => setQs({ feed: f }, { replace: true });
   return (
     <div className="live">
-      <div className="live-feeds" role="tablist" aria-label="Feed">
+      <div className="live-feeds" role="tablist" aria-label="Choose what to watch">
         {FEEDS.map((f) => (
           <button key={f.id} role="tab" aria-selected={feed === f.id} className="feed-btn" onClick={() => setFeed(f.id)}>
             <b>{f.label}</b><span>{f.note}</span>
@@ -29,7 +29,7 @@ export default function Live() {
 function ReplayView({ feed }: { feed: string }) {
   const { data, err } = useReplayData(feed);
   if (err) return <div className="plate live-msg">Could not load this replay: {err}</div>;
-  if (!data) return <div className="plate live-msg label">Loading {feed} replay…</div>;
+  if (!data) return <div className="plate live-msg label">Loading the replay…</div>;
   return <Console data={data} />;
 }
 
@@ -52,7 +52,7 @@ function Console({ data }: { data: Replay }) {
   const firstAttack = useMemo(() => data.events.find((e) => e.truth === 'attack')?.ts, [data]);
   const byId = useMemo(() => new Map(data.events.map((e) => [e.id, e])), [data]);
 
-  // Guided flow: pause on the first alert and open it, so a viewer sees the moment conservation breaks.
+  // Guided flow: stop on the first alert and open it, so a viewer sees the moment the deposit rule breaks.
   const paused = useRef(false);
   useEffect(() => { paused.current = false; setSelected(null); }, [data]);
   useEffect(() => {
@@ -65,34 +65,44 @@ function Console({ data }: { data: Replay }) {
   const progress = (t - data.window[0]) / (data.window[1] - data.window[0]);
   const m = data.metrics;
   const nNow = v.last?.hawkes_n ?? 0;
+  const suspicious = v.alerts.length - v.exploits.length;
 
   return (
     <>
+      <details className="howto" open={!playing && v.n < 3}>
+        <summary>How to read this page</summary>
+        <ol>
+          <li><b>Press Play.</b> Every payout on the destination chain is checked against the deposits made on the source chain.</li>
+          <li><b>It stops at the first alert.</b> Green dots are payouts with a deposit behind them; copper dots have none.</li>
+          <li><b>Click Why or Check it</b> in the alert card to see the reasons, and try the check yourself.</li>
+        </ol>
+      </details>
+
       <div className="live-transport plate">
-        <button className="btn btn--sm" onClick={() => setPlaying((p) => !p)} aria-label={playing ? 'Pause' : 'Play'}>{playing ? 'Pause' : t >= data.window[1] ? 'Done' : 'Play'}</button>
-        <div className="row" style={{ gap: 4 }}>
+        <button className="btn btn--sm" onClick={() => setPlaying((p) => !p)} aria-label={playing ? 'Pause' : 'Play'}>{playing ? 'Pause' : t >= data.window[1] ? 'Finished' : 'Play'}</button>
+        <div className="row" style={{ gap: 4 }} title="Replay speed">
           {SPEEDS.map((s) => <button key={s} className="btn btn--line btn--sm" aria-pressed={speed === s} onClick={() => setSpeed(s)}>{s}×</button>)}
         </div>
-        {firstAttack && <button className="btn btn--line btn--sm" onClick={() => { setT(firstAttack - 180); setPlaying(true); }}>Jump to attack</button>}
+        {firstAttack && <button className="btn btn--line btn--sm" onClick={() => { setT(firstAttack - 180); setPlaying(true); }}>Skip to the attack</button>}
         <input className="live-scrub" type="range" min={data.window[0]} max={data.window[1]} value={Math.floor(t)} aria-label="Replay time"
           onChange={(e) => setT(+e.target.value)} style={{ ['--p' as string]: `${progress * 100}%` }} />
         <span className="mono live-clock">{utc(t).slice(5, 19)}</span>
-        <label className="row small dim" style={{ gap: 6 }}><input type="checkbox" checked={tour} onChange={(e) => setTour(e.target.checked)} /> pause on first alert</label>
+        <label className="row small dim" style={{ gap: 6 }}><input type="checkbox" checked={tour} onChange={(e) => setTour(e.target.checked)} /> stop at the first alert</label>
       </div>
 
       <div className="live-stats">
-        <Stat k="Releases checked" v={v.withdrawals.length.toLocaleString()} />
-        <Stat k="Backed" v={usd(v.backed)} tone="ok" />
-        <Stat k="Unbacked (gap)" v={usd(v.unbacked)} tone={v.unbacked > 0 ? 'bad' : undefined} />
+        <Stat k="Payouts checked" v={v.withdrawals.length.toLocaleString()} />
+        <Stat k="Backed by a deposit" v={usd(v.backed)} tone="ok" />
+        <Stat k="No deposit behind it" v={usd(v.unbacked)} tone={v.unbacked > 0 ? 'bad' : undefined} />
         <Stat k="Exploit alerts" v={String(v.exploits.length)} tone={v.exploits.length ? 'bad' : undefined} />
-        <Stat k="Suspicious" v={String(v.alerts.length - v.exploits.length)} tone={v.alerts.length - v.exploits.length ? 'warn' : undefined} />
-        <Stat k="Spread n̂" v={nNow.toFixed(2)} tone={nNow > 0.8 ? 'bad' : undefined} sub={nNow > 0.8 ? 'self-sustaining' : 'quiet'} />
+        <Stat k="Suspicious (advice only)" v={String(suspicious)} tone={suspicious ? 'warn' : undefined} />
+        <Stat k="Attack spread" v={nNow.toFixed(2)} tone={nNow > 0.8 ? 'bad' : undefined} sub={nNow > 0.8 ? 'spreading by itself' : nNow > 0.3 ? 'building' : 'quiet'} />
       </div>
 
       <div className="live-main">
         <section className="plate live-graph">
-          <header className="plate-head"><span className="label">Live flow graph · {data.label}</span>
-            <span className="legend"><i className="lg-ok" />backed <i className="lg-bad" />unbacked <i className="lg-warn" />suspicious <i className="lg-cl" />copycat cluster</span></header>
+          <header className="plate-head"><span className="label">Where the money goes · {data.label}</span>
+            <span className="legend"><i className="lg-ok" />has a deposit <i className="lg-bad" />no deposit <i className="lg-warn" />suspicious <i className="lg-cl" />copycat cluster</span></header>
           <LiveGraph data={data} n={v.n} selected={top?.id ?? null} onSelect={setSelected} />
         </section>
         <aside className="live-side">
@@ -103,18 +113,14 @@ function Console({ data }: { data: Replay }) {
 
       <div className="live-tl plate">{CHARTS.map((c, i) => <Timeline key={c.title} data={data} t={t} spec={c} idx={i} />)}</div>
 
-      <div className="live-bottom">
-        <Scorecard data={data} />
-        <section className="plate"><header className="plate-head"><span className="label">Measured on this feed</span></header>
-          <div className="plate-body small">
-            <p><b>{m.attack_flagged_exploit}/{m.attack_releases}</b> attack releases labelled exploit · <b>{m.normal_false_exploit}</b> normal releases ever labelled exploit.</p>
-            <p>Held-out normal traffic: <b>{m.heldout_normal.toLocaleString()}</b> releases over {m.heldout_days} days → <b>{m.heldout_false_alarms}</b> statistical alarm{m.heldout_false_alarms === 1 ? '' : 's'} (guarantee: on average ≥ 1,000 normal releases per false alarm).</p>
-            <p>Statistics alone (rules switched off) alarm on <b>{m.stat_alarms_on_attack}/{m.attack_releases}</b> attack releases{m.stat_first_alarm_after_s != null ? `, first ${m.stat_first_alarm_after_s} s after the attack began` : ' — this attack is caught by the conservation rule only'}.</p>
-            {m.max_cluster > 1 && <p>Largest copycat cluster <b>{m.max_cluster}</b>, peak spread n̂ <b>{m.max_hawkes_n.toFixed(2)}</b>.</p>}
-            {m.auth_attack_p && <p>Signer & auth model (ML2) on the attack: p = {m.auth_attack_p.slice(0, 3).join(', ')} vs median {m.auth_heldout_median_p} on normal days.</p>}
-            <p className="dim">Types on attack releases: {Object.entries(m.types_on_attack).map(([k, n]) => `${TYPE_SHORT[k] ?? k} ${n}`).join(' · ')}.</p>
-          </div></section>
-      </div>
+      <section className="plate summary">
+        <header className="plate-head"><span className="label">This replay in numbers</span><Link className="small" to="/console/results">All results →</Link></header>
+        <div className="plate-body small">
+          <p><b>{m.attack_flagged_exploit} of {m.attack_releases}</b> attack payouts were labelled “exploit”, and <b>{m.normal_false_exploit}</b> honest payouts ever were.</p>
+          <p>On {m.heldout_days} days of normal traffic the models had never seen ({m.heldout_normal.toLocaleString()} payouts) there were <b>{m.heldout_false_alarms}</b> statistical false alarm{m.heldout_false_alarms === 1 ? '' : 's'}.</p>
+          <p className="dim">Statistics alone, with the deposit rule switched off, flag {m.stat_alarms_on_attack} of {m.attack_releases} attack payouts{m.max_cluster > 1 ? `; the biggest copycat cluster reached ${m.max_cluster}` : ''}. The deposit rule is what makes the final call.</p>
+        </div>
+      </section>
     </>
   );
 }
@@ -127,14 +133,14 @@ function AlertQueue({ alerts, selected, onSelect }: { alerts: Ev[]; selected: st
   const list = alerts.slice(-60).reverse();
   return (
     <section className="plate aq">
-      <header className="plate-head"><span className="label">Alert queue · {alerts.length}</span></header>
+      <header className="plate-head"><span className="label">Alerts so far · {alerts.length}</span></header>
       <ol className="aq-list">
         {list.length === 0 && <li className="dim small">Nothing flagged yet.</li>}
         {list.map((e) => (
           <li key={e.id}><button className={`aq-row aq--${e.level} ${selected === e.id ? 'is-sel' : ''}`} onClick={() => onSelect(e.id)}>
-            <span className="mono">{e.risk}</span>
+            <span className="mono" title="Risk 0 to 100">{e.risk}</span>
             <span>{TYPE_SHORT[e.type ?? ''] ?? e.level}</span>
-            <span className="mono dim">{e.symbol} {(e.usd == null ? 'unpriced' : usd(e.usd))}</span>
+            <span className="mono dim">{e.symbol} {human(e.amount, e.decimals, 1)}</span>
             <span className="mono dim">{utc(e.ts).slice(11, 19)}</span>
           </button></li>))}
       </ol>
@@ -142,42 +148,25 @@ function AlertQueue({ alerts, selected, onSelect }: { alerts: Ev[]; selected: st
   );
 }
 
-function Scorecard({ data }: { data: Replay }) {
-  return (
-    <section className="plate">
-      <header className="plate-head"><span className="label">Scorecard · same feed, common methods vs ours</span></header>
-      <div className="plate-body" style={{ overflowX: 'auto' }}>
-        <table className="sc"><thead><tr><th>Method</th><th>Attack releases flagged</th><th>Value out before 1st alert</th><th>False alerts (held-out normal)</th></tr></thead>
-          <tbody>{data.metrics.scorecard.map((r) => (
-            <tr key={r.method} className={r.method.startsWith('BridgeWitness') ? 'ours' : ''}>
-              <td>{r.method}</td><td className="mono">{r.attack_flagged}</td>
-              <td className="mono">{r.usd_before_first_alert == null ? '—' : usd(r.usd_before_first_alert)}</td>
-              <td className="mono">{r.false_alerts} <span className="dim">({r.false_alerts_per_day}/day)</span></td>
-            </tr>))}</tbody></table>
-        <p className="dim small">Normal-day false alerts are counted on held-out days the models never saw. Labels come from XChainWatcher's matching rules (circular for the rule layer; stated).</p>
-      </div>
-    </section>
-  );
-}
-
 const usdSmall = (v: number) => (v < 10 ? '$' + v.toFixed(2) : usd(v));
+const CHAIN: Record<number, string> = { 1: 'Ethereum', 10: 'Optimism', 56: 'BNB Chain', 137: 'Polygon', 8453: 'Base', 42161: 'Arbitrum', 59144: 'Linea', 324: 'zkSync' };
+const VERDICT_TEXT: Record<string, string> = { consistent: 'Backed', pending: 'Waiting', overdue: 'Late', unknown: 'Not enough data', violation: 'No deposit' };
 
 function LiveTail() {
   const { live, err } = useLive(true);
-  const chain = (id: number) => ({ 1: 'Ethereum', 10: 'Optimism', 56: 'BNB', 137: 'Polygon', 8453: 'Base', 42161: 'Arbitrum', 59144: 'Linea', 324: 'zkSync' } as Record<number, string>)[id] ?? `chain ${id}`;
   return (
     <section className="plate">
-      <header className="plate-head"><span className="label">Live tail · Across bridge · conservation check on real current transfers</span>
-        {live && <span className="mono small dim">polled {new Date(live.polled_at * 1000).toLocaleTimeString()}</span>}</header>
+      <header className="plate-head"><span className="label">A real bridge, right now · Across</span>
+        {live && <span className="mono small dim">updated {new Date(live.polled_at * 1000).toLocaleTimeString()}</span>}</header>
       <div className="plate-body">
         {err && <p className="bad">{err}</p>}
         {live?.error && <p className="warn">{live.error}</p>}
-        {live && <div className="live-stats">{Object.entries(live.counts).map(([k, n]) => <Stat key={k} k={k} v={String(n)} tone={k === 'violation' && n ? 'bad' : k === 'consistent' ? 'ok' : undefined} />)}</div>}
-        <p className="dim small">Rule: value released on the destination ≤ value locked on the origin (Across' own prices, decimals from its token list, 1% + $1 tolerance). The ML models <b>abstain</b> here: they have no calibration history for these routes, and say so instead of guessing.</p>
-        <div style={{ overflowX: 'auto' }}><table className="sc"><thead><tr><th>Verdict</th><th>Route</th><th>Token</th><th>In</th><th>Out</th><th>Fill delay</th><th>Deposit tx</th></tr></thead><tbody>
-          {live?.rows.map((r) => <tr key={r.id}><td className={`v-${r.verdict}`}>{r.verdict}</td><td>{chain(r.src)} → {chain(r.dst)}</td><td>{r.symbol ?? '?'}</td>
+        <p className="lede">These are the latest real transfers on the Across bridge, checked live. The rule is simple: <b>the value paid out must not exceed the value deposited</b> (we allow 1% + $1 for price rounding). Our learned models stay silent here on purpose: they have no history for these routes, and say so instead of guessing.</p>
+        {live && <div className="live-stats">{Object.entries(live.counts).map(([k, n]) => <Stat key={k} k={VERDICT_TEXT[k] ?? k} v={String(n)} tone={k === 'violation' && n ? 'bad' : k === 'consistent' ? 'ok' : undefined} />)}</div>}
+        <div style={{ overflowX: 'auto' }}><table className="sc"><thead><tr><th>Result</th><th>Route</th><th>Token</th><th>Deposited</th><th>Paid out</th><th>Took</th><th>Deposit transaction</th></tr></thead><tbody>
+          {live?.rows.map((r) => <tr key={r.id}><td className={`v-${r.verdict}`}>{VERDICT_TEXT[r.verdict]}</td><td>{CHAIN[r.src] ?? `chain ${r.src}`} → {CHAIN[r.dst] ?? `chain ${r.dst}`}</td><td>{r.symbol ?? '?'}</td>
             <td className="mono">{r.in_usd == null ? '—' : usdSmall(r.in_usd)}</td><td className="mono">{r.out_usd == null ? '—' : usdSmall(r.out_usd)}</td>
-            <td className="mono" title="Block timestamps on two chains; ≤0 s means the fill landed in the same second (clock skew).">{r.delay_s == null ? '—' : r.delay_s <= 0 ? '~0s' : `${r.delay_s}s`}</td><td className="mono dim">{r.deposit_tx?.slice(0, 10)}…</td></tr>)}
+            <td className="mono">{r.delay_s == null ? '—' : r.delay_s <= 0 ? 'under 1 s' : `${r.delay_s} s`}</td><td className="mono dim">{r.deposit_tx?.slice(0, 10)}…</td></tr>)}
         </tbody></table></div>
       </div>
     </section>
