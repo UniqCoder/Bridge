@@ -167,14 +167,12 @@
 .axis { display: flex; justify-content: space-between; font: 11px var(--mono); color: var(--text-3); margin-top: -6px; }
 .reads b { font-size: 18px; }
 
-/* key facts strip + takeaway + ID ruler */
+/* key facts strip + ID ruler */
 .keystats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
 .keystats > div { display: grid; gap: 6px; padding: 18px 22px; background: var(--panel); }
 .keystats b { font: 600 clamp(20px, 2vw, 28px)/1 var(--mono); }
 .keystats span { color: var(--text-2); font-size: 14px; }
 .ks--ok b { color: var(--verified); } .ks--bad b { color: var(--violation); } .ks--warn b { color: var(--pending); }
-.takeaway { display: grid; gap: 8px; padding: 22px 26px; background: var(--panel); border-left: 3px solid var(--verified); }
-.takeaway p { margin: 0; font-size: clamp(16px, 1.6vw, 20px); line-height: 1.55; max-width: 90ch; }
 .idcards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .idcards > div { display: grid; gap: 4px; padding: 14px 16px; background: var(--bg-raise); border: 1px solid var(--line); }
 .idcards span { color: var(--text-2); font-size: 13px; } .idcards b { font: 600 clamp(17px, 1.6vw, 22px) var(--mono); }

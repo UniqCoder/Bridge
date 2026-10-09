@@ -23,13 +23,6 @@ const IDEAS = [
     how: 'We bind each payout to its route, token and message, then check the exact amount, recipient and prior use. Each deposit can back one payout. Learned timing adds context, but never rejects an otherwise valid authorization.' },
 ];
 
-const TAKE = [
-  'A judge can ask "how often are you wrong?" and get a number, not a promise: 0 false alarms in 1,826 unseen Nomad payouts. And the word EXPLOIT is only ever said when the deposit rule breaks.',
-  'Clusters make related payouts easier to investigate. Estimated spread is advice; only a proven backing-rule violation can support containment.',
-  'We did not invent signers. We recovered them from real signatures, then reported honestly that the Ronin attackers looked ordinary. The withdrawal ID is what gave them away.',
-  'Matching by message ID caught 41 of 382 Nomad attack payouts. Matching by amount, person and timing caught all 382, because every deposit can be used only once.',
-];
-
 function KeyStats({ n, m }: { n: number; m: Metrics | null }) {
   const nm = m?.feeds.nomad, rn = m?.feeds.ronin, s = m?.signer_dna;
   const rows: [string, string, string][][] = [
@@ -54,7 +47,6 @@ export default function Usps({ n }: { n: 1 | 2 | 3 | 4 }) {
   const m = useMetrics();
   const idea = IDEAS[n - 1];
   const Demo = [BudgetDemo, ContagionDemo, SignerDemo, PairingDemo][n - 1];
-  const next = IDEAS[n % 4];
   return (
     <div className="pg">
       <header className="pg-head">
@@ -67,8 +59,6 @@ export default function Usps({ n }: { n: 1 | 2 | 3 | 4 }) {
       </header>
       <KeyStats n={n} m={m} />
       <Usp n={n} name={idea.name} tag={idea.tag} problem={idea.problem} how={idea.how}><Demo m={m} /></Usp>
-      <aside className="takeaway"><span className="label">What to take away</span><p>{TAKE[n - 1]}</p></aside>
-      <footer className="pg-foot">Next idea: <Link to={`/console/${next.to}`}>{next.name} →</Link> · or see all four on one timeline in the <Link to="/console/live">live console</Link>.</footer>
     </div>
   );
 }
