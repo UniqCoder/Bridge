@@ -147,3 +147,49 @@
   .ac-verdict li { grid-template-columns: 22px 1fr; } .ac-verdict li span { grid-column: 2; }
 }
 .mon-main .aq-row { grid-template-columns: 30px 1fr auto; } .mon-main .aq-row span:nth-child(3) { display: none; }
+
+/* ===== v5 monitor ===== */
+.ctx { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; padding: 14px 18px; }
+.ctx > div { display: grid; gap: 2px; min-width: 0; }
+.ctx-k { font-size: 12.5px; color: var(--text-3); }
+.ctx b { font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx small { font-size: 13px; color: var(--text-2); }
+.bad { color: var(--violation); } .warn { color: var(--pending); } .ok { color: var(--verified); }
+.live-clock { font-size: 14px; }
+.stat .label { font-size: 13px; }
+.stat b { font-size: 24px; font-weight: 600; }
+.stat small { font-size: 12.5px; color: var(--text-2); }
+.ac { padding: 18px 22px; gap: 16px; border-left-width: 4px; }
+.ac--exploit { border-left-color: var(--violation); } .ac--suspicious { border-left-color: var(--pending); }
+.ac-head { align-items: flex-start; }
+.ac-title { display: grid; gap: 4px; }
+.ac-title h3 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
+.ac-badge { font: 700 13px var(--sans); letter-spacing: .04em; text-transform: uppercase; }
+.ac--exploit .ac-badge { color: var(--violation); } .ac--suspicious .ac-badge { color: var(--pending); }
+.ac-risk .mono { font-size: 40px; }
+.ac-risk small { font-size: 13px; }
+.story { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; counter-reset: st; }
+.story > li { position: relative; padding: 0 0 14px 34px; border-left: 2px solid var(--line-2); margin-left: 11px; }
+.story > li:last-child { border-left-color: transparent; padding-bottom: 0; }
+.story > li::before { counter-increment: st; content: counter(st); position: absolute; left: -12px; top: -1px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 600 12px var(--sans); background: var(--panel-2); border: 1px solid var(--line-2); color: var(--text-2); }
+.story > li.is-bad::before { background: var(--violation); border-color: var(--violation); color: #fff; }
+.story > li.is-ok::before { background: var(--verified); border-color: var(--verified); color: #04201a; }
+.story-k { display: block; font-size: 13px; font-weight: 600; color: var(--text-2); margin-bottom: 3px; }
+.story-k small { font-weight: 400; color: var(--text-3); }
+.story p { margin: 0; font-size: 16px; line-height: 1.5; }
+.story-sig { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+.story-sig li { display: grid; grid-template-columns: 20px 200px 1fr; gap: 8px; align-items: baseline; font-size: 14px; padding: 6px 10px; background: var(--panel-2); border-radius: 6px; }
+.story-sig li i { font-style: normal; font-weight: 700; text-align: center; }
+.ac-tab { font-size: 14px; }
+.ac-body { font-size: 14px; }
+.ac-p { font-size: 13.5px; }
+.aq-row { font-size: 13.5px; padding: 8px 10px; }
+.aq-row.is-sel { box-shadow: inset 0 0 0 1px var(--line-2); }
+.tl-note { font-size: 13px; color: var(--text-2); }
+.tl .uplot .u-legend { font-size: 13px; }
+.h2h-row { font-size: 14px; }
+.lab .label { font-size: 15px; color: var(--text); }
+.mapbox summary .label { font-size: 15px; }
+@media (max-width: 1100px) { .ctx { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .story-sig li { grid-template-columns: 20px 1fr; } .story-sig li span { grid-column: 2; } .ac-title h3 { font-size: 22px; } }
+.feed-btn span { font-size: 12.5px; } .story .hash { font-size: 14px; } .story-k small { font-size: 12.5px; }

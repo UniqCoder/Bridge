@@ -72,6 +72,12 @@ function Console({ data }: { data: Replay }) {
   const launch = (ts: number) => { const at = Math.max(data.window[0], ts - 120); armed.current = alertsBefore(at); setPausedAt(null); setSelected(null); setT(at); setPlaying(true); };
 
   const top = selected ? byId.get(selected) ?? null : v.alerts[v.alerts.length - 1] ?? null;
+  const allAlerts = useMemo(() => data.events.filter((e) => e.kind === 'withdrawal' && e.level && e.level !== 'none'), [data]);
+  const curIdx = top ? allAlerts.findIndex((e) => e.id === top.id) : -1;
+  const nextAlert = curIdx >= 0 ? allAlerts[curIdx + 1] : allAlerts.find((e) => e.ts > t);
+  const prevAlert = curIdx > 0 ? allAlerts[curIdx - 1] : null;
+  const goto = (e: Ev) => { setPlaying(false); armed.current = null; setT(e.ts); setSelected(e.id); };
+  const reset = () => { setPlaying(false); setT(data.window[0]); armed.current = 0; setSelected(null); setPausedAt(null); };
   const progress = (t - data.window[0]) / (data.window[1] - data.window[0]);
   const nNow = v.last?.hawkes_n ?? 0;
   const suspicious = v.alerts.length - v.exploits.length;
@@ -94,25 +100,26 @@ function Console({ data }: { data: Replay }) {
             {sc.attack ? '▶ ' : ''}{name}</button>))}</div>
       </section>}
 
+      <section className="ctx plate">
+        <div><span className="ctx-k">Watching</span><b>{data.label.split(' · ')[0]} bridge</b></div>
+        <div><span className="ctx-k">Route</span><b>{routeText(data.route)}</b></div>
+        <div><span className="ctx-k">Data</span><b>{scenarios.length ? 'Practice attacks injected into real traffic' : 'Replay of recorded on-chain data'}</b><small>{data.label.split(' · ')[1] ?? ''}</small></div>
+        <div><span className="ctx-k">State</span><b className={top?.level === 'exploit' ? 'bad' : playing ? 'ok' : ''}>{playing ? '● Replaying' : top?.level === 'exploit' ? '✗ Stopped on an exploit alert' : t >= data.window[1] ? 'Replay finished' : '❚❚ Paused'}</b><small>{utc(t).slice(0, 16)} UTC</small></div>
+      </section>
+
       <div className="live-transport plate">
         <button className="btn btn--sm" onClick={() => { if (t >= data.window[1]) { setT(data.window[0]); armed.current = 0; setSelected(null); setPausedAt(null); } setPlaying((p) => !p); }} aria-label={playing ? 'Pause' : 'Play'}>{playing ? 'Pause' : t >= data.window[1] ? 'Replay' : 'Play'}</button>
         <div className="row" style={{ gap: 4 }} title="Replay speed">
           {SPEEDS.map((s) => <button key={s} className="btn btn--line btn--sm" aria-pressed={speed === s} onClick={() => setSpeed(s)}>{s}×</button>)}
         </div>
+        <button className="btn btn--line btn--sm" onClick={reset} title="Back to the start of the replay">⟲ Reset</button>
+        <button className="btn btn--line btn--sm" disabled={!prevAlert} onClick={() => prevAlert && goto(prevAlert)} title="Previous alert">◀ Alert</button>
+        <button className="btn btn--line btn--sm" disabled={!nextAlert} onClick={() => nextAlert && goto(nextAlert)} title="Jump to the next alert">Alert ▶</button>
         {firstAttack && !scenarios.length && <button className="btn btn--sm btn--hot" onClick={() => launch(firstAttack)}>▶ Run the attack</button>}
         <input className="live-scrub" type="range" min={data.window[0]} max={data.window[1]} value={Math.floor(t)} aria-label="Replay time"
           onChange={(e) => setT(+e.target.value)} style={{ ['--p' as string]: `${progress * 100}%` }} />
         <span className="mono live-clock">{utc(t).slice(5, 19)}</span>
         <label className="row small dim" style={{ gap: 6 }}><input type="checkbox" checked={tour} onChange={(e) => setTour(e.target.checked)} /> stop at the next alert</label>
-      </div>
-
-      <div className="live-stats">
-        <Stat k="Payouts checked" v={v.withdrawals.length.toLocaleString()} />
-        <Stat k="Backed by a deposit" v={usd(v.backed)} tone="ok" />
-        <Stat k="No deposit behind it" v={usd(v.unbacked)} tone={v.unbacked > 0 ? 'bad' : undefined} />
-        <Stat k="Exploit alerts" v={String(v.exploits.length)} tone={v.exploits.length ? 'bad' : undefined} sub={seenAttacks ? `${caught} of ${seenAttacks} attack payouts so far` : undefined} />
-        <Stat k="Suspicious (advice only)" v={String(suspicious)} tone={suspicious ? 'warn' : undefined} />
-        <Stat k="Estimated spread" v={nNow.toFixed(2)} tone={nNow >= 1 ? 'warn' : undefined} sub={nNow >= 1 ? 'strong fitted spread' : nNow > 0.3 ? 'cluster building' : 'quiet'} />
       </div>
 
       <div className="mon-main">
@@ -124,9 +131,19 @@ function Console({ data }: { data: Replay }) {
         </div>
       </div>
 
+      <div className="live-stats">
+        <Stat k="Payouts checked" v={v.withdrawals.length.toLocaleString()} />
+        <Stat k="Backed by a deposit" v={usd(v.backed)} tone="ok" />
+        <Stat k="No deposit behind it" v={usd(v.unbacked)} tone={v.unbacked > 0 ? 'bad' : undefined} />
+        <Stat k="Exploit alerts" v={String(v.exploits.length)} tone={v.exploits.length ? 'bad' : undefined} sub={seenAttacks ? `${caught} of ${seenAttacks} attack payouts so far` : undefined} />
+        <Stat k="Suspicious (advice only)" v={String(suspicious)} tone={suspicious ? 'warn' : undefined} />
+        <Stat k="Estimated spread" v={nNow.toFixed(2)} tone={nNow >= 1 ? 'warn' : undefined} sub={nNow >= 1 ? 'strong fitted spread' : nNow > 0.3 ? 'cluster building' : 'quiet'} />
+      </div>
+
       <HeadToHead data={data} caught={caught} seen={seenAttacks} />
 
-      <div className="live-tl plate">{CHARTS.map((c, i) => <Timeline key={c.title} data={data} t={t} spec={c} idx={i} />)}</div>
+      <section className="plate"><header className="plate-head"><h3 className="sec-h">Bridge activity over time</h3><span className="dim small">red line = the selected alert</span></header>
+        <div className="live-tl">{CHARTS.map((c, i) => <Timeline key={c.title} data={data} t={t} spec={c} idx={i} alertTs={top && top.ts <= t ? top.ts : null} />)}</div></section>
 
       <details className="plate mapbox" onToggle={(e) => setShowMap((e.target as HTMLDetailsElement).open)}>
         <summary className="plate-head"><span className="label">Money flow map · {data.label}</span><span className="dim small">open to see deposits and payouts as a graph</span></summary>
@@ -143,7 +160,7 @@ function Console({ data }: { data: Replay }) {
   );
 }
 
-/** Response action: what holding the route right now would keep in the bridge (an estimate from the replay). */
+/** What-if (not an action): what holding the route at this moment would have kept in the bridge, estimated from the replay. */
 function PauseRoute({ t, pausedAt, attacks, onPause, onResume }: { t: number; pausedAt: number | null; attacks: Ev[]; onPause: () => void; onResume: () => void }) {
   const total = attacks.reduce((s, e) => s + (e.usd ?? 0), 0);
   const at = pausedAt ?? t;
@@ -152,17 +169,19 @@ function PauseRoute({ t, pausedAt, attacks, onPause, onResume }: { t: number; pa
   return (
     <section className={`plate pause ${pausedAt ? 'is-paused' : ''}`}>
       {pausedAt ? <>
-        <b>Route paused at {utc(pausedAt).slice(11, 19)}.</b>
+        <b>What-if: route held at {utc(pausedAt).slice(11, 19)}.</b>
         <span>Kept in the bridge: <b className="ok mono">{usd(kept)}</b> of {usd(total)} ({total ? Math.round(kept / total * 1000) / 10 : 0}%) · already lost <b className="bad mono">{usd(lost)}</b></span>
-        <button className="btn btn--line btn--sm" onClick={onResume}>Undo</button>
+        <button className="btn btn--line btn--sm" onClick={onResume}>Clear</button>
       </> : <>
-        <button className="btn btn--sm btn--hot" onClick={onPause}>⏸ Pause this route now</button>
-        <span>Would keep <b className="ok mono">{usd(kept)}</b> of the {usd(total)} this attack takes in total ({total ? Math.round(kept / total * 1000) / 10 : 0}%).</span>
+        <button className="btn btn--line btn--sm" onClick={onPause}>What if the route were held here?</button>
+        <span>Holding now would keep <b className="ok mono">{usd(kept)}</b> of the {usd(total)} this attack takes in total ({total ? Math.round(kept / total * 1000) / 10 : 0}%).</span>
       </>}
-      <small className="dim">Estimate from the replay: assumes the attackers would not have changed course. Honest payouts on the route wait until it is resumed.</small>
+      <small className="dim">A what-if estimate from the replay, not an action: BridgeWitness alerts, it does not pause bridges. Assumes the attackers would not have changed course.</small>
     </section>
   );
 }
+
+const routeText = (r: string) => r.split(':').pop()!.split('→').map((x) => x[0].toUpperCase() + x.slice(1)).join(' → ');
 
 const SHORT: Record<string, string> = { 'B1 whale > $1M': 'Big-transfer alarm (> $1M)', 'B2 volume z-score > 3': 'Volume-spike alarm', 'B3 message-id join': 'Match by message ID', 'BridgeWitness (exploit)': 'BridgeWitness' };
 /** Same stream, simpler detectors: how many attack payouts each catches and how many false alarms it raises. */

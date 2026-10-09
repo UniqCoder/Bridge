@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Ev, Replay } from './data';
-import { FEATURE_ABSENT, FEATURE_TEXT, RULE_SENTENCE, RULE_TEXT, SIGNAL_NAME, TYPE_SHORT, human, txUrl } from './data';
+import { FEATURE_ABSENT, FEATURE_TEXT, RULE_SENTENCE, SIGNAL_NAME, TYPE_SHORT, human, txUrl } from './data';
 import { duration, usd, utc } from '../lib/format';
 
 const fmtP = (p: number | null | undefined) => (p == null ? '—' : p < 0.001 ? '< 0.001' : p.toFixed(3));
@@ -18,26 +18,16 @@ export function AlertCard({ e, data }: { e: Ev | null; data: Replay }) {
   return (
     <section className={`ac plate ac--${level}`} aria-live="polite">
       <header className="ac-head">
-        <div className="ac-badge">{level === 'exploit' ? 'EXPLOIT' : level === 'suspicious' ? 'SUSPICIOUS' : 'LOOKS NORMAL'}</div>
+        <div className="ac-title"><div className="ac-badge">{level === 'exploit' ? '✗ Exploit' : level === 'suspicious' ? '! Suspicious' : 'Looks normal'}</div><h3>{TYPE_SHORT[e.type ?? ''] ?? 'Alert'}</h3>
+          {e.type && <span className="dim small" title="Classifier trained on synthetic scenarios; not a validated real-attack probability">type classifier confidence {Math.round((e.type_prob ?? 0) * 100)}% (trained on synthetic attacks)</span>}</div>
         <div className="ac-risk" title="Risk from 0 to 100. Anything above 69 always has a broken deposit rule behind it.">
-          <span className="mono">{e.risk ?? 0}</span><small>/100 risk</small>
+          <span className="mono">{e.risk ?? 0}</span><small>/100 priority</small>
           <i style={{ width: `${e.risk ?? 0}%` }} />
         </div>
       </header>
-      {e.type && <div className="ac-type">
-        <strong>{TYPE_SHORT[e.type] ?? e.type}</strong>
-        <span className="mono dim" title="Confidence from synthetic training; not a validated real-attack probability"> · model confidence {Math.round((e.type_prob ?? 0) * 100)}%</span>
-        <p className="dim">{e.type_text}</p>
-        {e.precedent && e.precedent !== '—' && <p className="ac-prec">Looks most like: <b>{e.precedent}</b></p>}
-      </div>}
       <Verdict e={e} />
-      <dl className="ac-facts">
-        <dt>Payout</dt><dd className="mono">{e.symbol} {human(e.amount, e.decimals)} · {e.usd == null ? 'unpriced' : usd(e.usd)} · {utc(e.ts).slice(11, 19)}</dd>
-        <dt>Deposit</dt><dd>{e.status === 'violation' ? <b className="bad">{RULE_TEXT[e.rule ?? ''] ?? e.rule}</b> : <span className="ok">Found, made {e.delay != null ? duration(e.delay) : ''} earlier</span>}</dd>
-        <dt>Transaction</dt><dd>{e.scenario ? <span className="tag tag--pending">practice attack · {e.scenario}</span> : <a className="hash" href={txUrl('x', 'withdrawal', e.tx) ?? '#'} target="_blank" rel="noreferrer">{e.tx.slice(0, 12)}… ↗</a>}</dd>
-      </dl>
       <nav className="ac-tabs" role="tablist">
-        {([['why', 'Why'], ['check', 'Check it'], ['stop', 'If we had stopped it']] as const).map(([k, l]) => (
+        {([['why', 'Detector details'], ['check', 'Deposit search'], ['stop', 'What-if: hold earlier']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} className="ac-tab" onClick={() => setTab(k)}>{l}</button>))}
       </nav>
       {tab === 'why' && <Why e={e} />}
@@ -53,26 +43,42 @@ const LOW: Record<string, number> = { id_jump_log: 6.9, hawkes_n: 0.3 };
 type Mark = 'bad' | 'warn' | 'ok' | 'na';
 const ICON: Record<Mark, string> = { bad: '✗', warn: '!', ok: '✓', na: '–' };
 
-/** Plain verdict: one sentence, then each check as pass / fail. */
+const NEXT_STEP: Record<string, string> = {
+  unbacked_release: 'Hold this route and confirm on the source chain that no deposit exists for this message.',
+  copycat_swarm: 'Hold the route: many near-identical payouts are draining it. Trace the first payout to find the root cause.',
+  message_replay: 'Check the message ID history: the same authorization is being paid out more than once.',
+  key_compromise: 'Rotate the validator keys that signed and freeze withdrawals with out-of-range IDs.',
+  amount_mismatch: 'Compare the payout amount with its deposit and check the token decimals on both chains.',
+  recipient_mismatch: 'Contact the depositor and check whether the recipient field was rewritten in transit.',
+};
+
+/** The selected alert as a story: observed fact -> rule finding -> advisory signals -> assessment -> next step. */
 function Verdict({ e }: { e: Ev }) {
   const s = e.signals;
-  const amt = `${e.symbol} ${human(e.amount, e.decimals)}${e.usd == null ? '' : ` (${usd(e.usd)})`}`;
-  const line = e.status === 'violation'
-    ? <><b>{amt}</b> was paid out {RULE_SENTENCE[e.rule ?? ''] ?? 'breaking the deposit rule'}.</>
-    : <><b>{amt}</b> is backed by a deposit but looks unusual next to normal traffic. Advice only, no accusation.</>;
-  const rows: [Mark, string, string][] = [
-    e.status === 'violation' ? ['bad', 'Deposit check', e.rule === 'missing_source_deposit' && e.search ? `no deposit found (${e.search.deposits_checked.toLocaleString()} earlier deposits searched)` : RULE_TEXT[e.rule ?? ''] ?? 'rule broken'] : ['ok', 'Deposit check', 'a matching deposit was found'],
+  const amt = `${e.symbol} ${human(e.amount, e.decimals)}${e.usd == null ? ' (unpriced)' : ` (${usd(e.usd)})`}`;
+  const broke = e.status === 'violation';
+  const signals: [Mark, string, string][] = [
     s?.id_jump && s.id_jump > 1000 ? ['bad', 'Withdrawal ID', `jumped ${s.id_jump.toLocaleString()} past the last issued ID`]
       : s?.id_reused ? ['bad', 'Message ID', 'already used by an earlier payout'] : ['ok', 'Message / withdrawal ID', 'in the normal range'],
-    s?.signers ? ['ok', 'Signers', `${s.signers.length} real validator signatures recovered; this group is normal`] : ['na', 'Signers', 'this bridge has no signer data'],
-    s && s.cluster_size > 1 ? [s.hawkes_n >= 0.9 ? 'bad' : 'warn', 'Spread', `${s.cluster_size} near-identical payouts · spread ${s.hawkes_n.toFixed(2)}${s.hawkes_n >= 0.9 ? ' (self-sustaining)' : ''}`] : ['ok', 'Spread', 'isolated payout, no copycats'],
-    e.p_comb != null && e.p_comb < 0.01 ? ['warn', 'Statistics', `unusual vs normal traffic (p ${fmtP(e.p_comb)})`] : ['ok', 'Statistics', 'within normal traffic'],
+    s?.signers ? ['ok', 'Signers', `${s.signers.length} real validator signatures recovered; this group is normal`] : ['na', 'Signers', 'no signer data for this bridge'],
+    s && s.cluster_size > 1 ? [s.hawkes_n >= 0.9 ? 'bad' : 'warn', 'Copycats', `${s.cluster_size} near-identical payouts · spread ${s.hawkes_n.toFixed(2)}${s.hawkes_n >= 0.9 ? ' (self-sustaining)' : ''}`] : ['ok', 'Copycats', 'isolated payout'],
+    e.p_comb != null && e.p_comb < 0.01 ? ['warn', 'Traffic statistics', `unusual vs normal traffic (p ${fmtP(e.p_comb)})`] : ['ok', 'Traffic statistics', 'within normal traffic'],
   ];
   return (
-    <div className="ac-verdict">
-      <p>{line}</p>
-      <ul>{rows.map(([m, k, v]) => <li key={k} className={`vd--${m}`}><i>{ICON[m]}</i><b>{k}</b><span>{v}</span></li>)}</ul>
-    </div>
+    <ol className="story">
+      <li><span className="story-k">Observed on chain</span>
+        <p><b>{amt}</b> paid out on the destination chain at {utc(e.ts).slice(11, 19)} UTC to <span className="mono">{e.recipient.slice(0, 10)}…</span>{' '}
+          {e.scenario ? <span className="tag tag--pending">practice attack</span> : <a className="hash" href={txUrl('x', 'withdrawal', e.tx) ?? '#'} target="_blank" rel="noreferrer">tx {e.tx.slice(0, 10)}… ↗</a>}</p></li>
+      <li className={broke ? 'is-bad' : 'is-ok'}><span className="story-k">Deposit rule {broke ? 'broken' : 'holds'}</span>
+        <p>{broke ? <>Paid out {RULE_SENTENCE[e.rule ?? ''] ?? 'breaking the deposit rule'}.{e.rule === 'missing_source_deposit' && e.search ? <> We searched <b>{e.search.deposits_checked.toLocaleString()}</b> earlier deposits: none match.</> : null}</>
+          : <>A matching deposit was found{e.delay != null ? `, made ${duration(e.delay)} earlier` : ''}.</>}</p></li>
+      <li><span className="story-k">Advisory signals <small>(statistics and ML; cannot accuse alone)</small></span>
+        <ul className="story-sig">{signals.map(([m, k, v]) => <li key={k} className={`vd--${m}`}><i aria-hidden>{ICON[m]}</i><b>{k}</b><span>{v}</span></li>)}</ul></li>
+      <li><span className="story-k">Assessment</span>
+        <p>{broke ? <><b className="bad">Exploit</b>: the deposit rule broke, which is verifiable from chain data.</> : <><b className="warn">Suspicious</b>: backed by a deposit, so this is advice only, not an accusation.</>}
+          {e.type && <> Most likely type: <b>{TYPE_SHORT[e.type] ?? e.type}</b>{e.precedent && e.precedent !== '—' ? <> (resembles {e.precedent})</> : null}.</>}</p></li>
+      {e.type && NEXT_STEP[e.type] && <li><span className="story-k">Recommended next step</span><p>{NEXT_STEP[e.type]}</p></li>}
+    </ol>
   );
 }
 

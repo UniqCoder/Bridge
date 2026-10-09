@@ -3,7 +3,8 @@ import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import type { Replay } from './data';
 
-const AX = { stroke: '#6b727d', grid: { stroke: '#1c1f24', width: 1 }, ticks: { stroke: '#23262c' }, font: '10px Geist Mono Variable, monospace' };
+const AX = { stroke: '#9aa3ae', grid: { stroke: '#1c1f24', width: 1 }, ticks: { stroke: '#23262c' }, font: '12px Geist Mono Variable, monospace' };
+const RED = '#ff5a4e';
 const SYNC = uPlot.sync('bw-live');
 
 type Spec = { title: string; note: string; series: { label: string; color: string; get: (k: Replay['ticks'][number]) => number; fill?: string; scale?: string }[];
@@ -13,10 +14,10 @@ export const CHARTS: Spec[] = [
   { title: 'Money in vs money out', note: 'payouts with a deposit behind them vs without (USD, running total)',
     series: [
       { label: 'has a deposit', color: '#2fd4b5', get: (k) => k.backed_usd, fill: 'rgba(47,212,181,0.08)' },
-      { label: 'no deposit', color: '#ff6a3d', get: (k) => k.unbacked_usd, fill: 'rgba(255,106,61,0.14)' }] },
+      { label: 'no deposit', color: RED, get: (k) => k.unbacked_usd, fill: 'rgba(255,90,78,0.14)' }] },
   { title: 'Is the attack spreading?', note: 'cluster size and fitted spread estimate; timing alone does not prove copying',
     series: [
-      { label: 'copycats', color: '#ff6a3d', get: (k) => k.cluster_max },
+      { label: 'copycats', color: RED, get: (k) => k.cluster_max },
       { label: 'spread', color: '#e3b04b', get: (k) => k.hawkes_n, scale: 'n' }],
     scales: { n: { range: [0, 3.2] } } },
   { title: 'Alarm evidence', note: 'advisory evidence accumulates to the alarm threshold; false alarms are measured on replay',
@@ -26,15 +27,17 @@ export const CHARTS: Spec[] = [
 
 function fmtUsd(v: number) { return v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(0)}k` : `$${v.toFixed(0)}`; }
 
-export function Timeline({ data, t, spec, idx }: { data: Replay; t: number; spec: Spec; idx: number }) {
+export function Timeline({ data, t, spec, idx, alertTs }: { data: Replay; t: number; spec: Spec; idx: number; alertTs?: number | null }) {
   const box = useRef<HTMLDivElement>(null);
+  const mark = useRef<number | null>(null);
+  mark.current = alertTs ?? null;
   const plot = useRef<uPlot | null>(null);
 
   useEffect(() => {
     const el = box.current!;
     const hl = spec.hline;
     const opts: uPlot.Options = {
-      width: el.clientWidth || 600, height: 120, legend: { show: true, live: true },
+      width: el.clientWidth || 600, height: 150, legend: { show: true, live: true },
       cursor: { sync: { key: SYNC.key }, drag: { x: false, y: false } },
       scales: { x: { time: true }, ...(spec.scales ?? {}) },
       axes: [
@@ -43,16 +46,23 @@ export function Timeline({ data, t, spec, idx }: { data: Replay; t: number; spec
         ...(spec.series.some((s) => s.scale === 'n') ? [{ ...AX, scale: 'n', side: 1 as const, size: 34, grid: { show: false } }] : []),
       ],
       series: [{}, ...spec.series.map((s) => ({ label: s.label, stroke: s.color, width: 1.6, fill: s.fill, scale: s.scale, points: { show: false } }))],
-      hooks: hl ? { draw: [(u) => {
+      hooks: { draw: [(u) => {
+        // Selected alert: vertical marker so the chart and the alert line up.
+        if (mark.current != null) {
+          const x = u.valToPos(mark.current, 'x', true); const ctx = u.ctx; ctx.save();
+          ctx.strokeStyle = RED; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, u.bbox.top); ctx.lineTo(x, u.bbox.top + u.bbox.height); ctx.stroke();
+          ctx.fillStyle = RED; ctx.font = '600 12px Geist Variable, sans-serif'; ctx.fillText('alert', x + 5, u.bbox.top + 13); ctx.restore();
+        }
+        if (!hl) return;
         const y = u.valToPos(hl.y, hl.scale ?? 'y', true);
-        const ctx = u.ctx; ctx.save(); ctx.strokeStyle = '#ff6a3d'; ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+        const ctx = u.ctx; ctx.save(); ctx.strokeStyle = RED; ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(u.bbox.left, y); ctx.lineTo(u.bbox.left + u.bbox.width, y); ctx.stroke();
-        ctx.fillStyle = '#ff6a3d'; ctx.font = '10px Geist Mono Variable, monospace'; ctx.fillText(hl.label, u.bbox.left + 6, y - 4); ctx.restore();
-      }] } : undefined,
+        ctx.fillStyle = RED; ctx.font = '12px Geist Mono Variable, monospace'; ctx.fillText(hl.label, u.bbox.left + 6, y - 4); ctx.restore();
+      }] },
     };
     const u = new uPlot(opts, [[]], el);
     plot.current = u;
-    const ro = new ResizeObserver(() => u.setSize({ width: el.clientWidth, height: 120 }));
+    const ro = new ResizeObserver(() => u.setSize({ width: el.clientWidth, height: 150 }));
     ro.observe(el);
     return () => { ro.disconnect(); u.destroy(); plot.current = null; };
   }, [data, spec, idx]);
@@ -65,6 +75,7 @@ export function Timeline({ data, t, spec, idx }: { data: Replay; t: number; spec
     const ys = spec.series.map((s) => data.ticks.map((k) => (k.t + 60 <= t ? s.get(k) : null)));
     u.setData([xs, ...ys] as uPlot.AlignedData);
   }, [data, spec, Math.floor(t / 30)]);
+  useEffect(() => { plot.current?.redraw(false); }, [alertTs]);
 
   return (
     <div className="tl">
