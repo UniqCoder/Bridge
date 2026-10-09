@@ -32,9 +32,9 @@ function HeroGraph() {
 
 const FEATURES: [string, string, string][] = [
   ['Live dashboard and 3D map', 'Replay a real hack or watch a real bridge. Every payout appears as a dot you can click.', '/console/live'],
-  ['Volume spikes', 'A 10-minute burst compared with the last 7 days, plus an attack-spread number.', '/console/usps#usp-2'],
-  ['Unusual signer behaviour', 'Real Ronin signers recovered from the signatures themselves.', '/console/usps#usp-3'],
-  ['Mismatched deposit and payout pairs', 'Each payout is paired to one deposit; the gap is tracked live.', '/console/usps#usp-4'],
+  ['Volume spikes', 'A 10-minute burst compared with the last 7 days, plus an attack-spread number.', '/console/contagion'],
+  ['Unusual signer behaviour', 'Real Ronin signers recovered from the signatures themselves.', '/console/signers'],
+  ['Mismatched deposit and payout pairs', 'Each payout is paired to one deposit; the gap is tracked live.', '/console/pairing'],
   ['Risk-scored alert with the attack type', 'A 0 to 100 score, the likely attack, the top reasons and the closest past hack.', '/console/live'],
   ['Check it yourself', 'Pick any payout, see the search that found no deposit, or try to cheat the rule.', '/console/evidence'],
 ];
@@ -53,7 +53,7 @@ export function Landing() {
         <p className="hero2-sub">A bridge locks your coins on one chain and pays out the same coins on another. When that promise breaks, hundreds of millions disappear in minutes. BridgeWitness watches both sides and tells you the moment a payout has no deposit behind it.</p>
         <div className="row-wrap">
           <ButtonLink to="/console/live?feed=nomad">Watch the Nomad hack replay</ButtonLink>
-          <ButtonLink to="/console/usps" variant="line">Try our four ideas</ButtonLink>
+          <ButtonLink to="/console/budget" variant="line">Try our four ideas</ButtonLink>
         </div>
         </div>
         <HeroGraph />
@@ -85,7 +85,7 @@ export function Landing() {
         <Reveal><div className="sect-head"><span className="label">What the challenge asked for · what we built</span><h2>Four ideas, each answering one part of the brief.</h2></div></Reveal>
         <div className="ideas">
           {IDEAS.map((i) => (
-            <Link key={i.n} to={`/console/usps#usp-${i.n}`} className="idea">
+            <Link key={i.n} to={`/console/${['budget', 'contagion', 'signers', 'pairing'][i.n - 1]}`} className="idea">
               <span className="idea-n">{i.n}</span><h3>{i.name}</h3><p>{i.line}</p><span className="idea-asks">Answers: {i.asks}</span><span className="idea-go">Try it →</span>
             </Link>))}
         </div>

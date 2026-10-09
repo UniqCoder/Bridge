@@ -28,7 +28,7 @@ function ScrollTop() {
 }
 
 // Old page addresses (from the first prototype) land on their replacements.
-const MOVED: Record<string, string> = { lab: 'usps', eval: 'results', graph: 'map' };
+const MOVED: Record<string, string> = { lab: 'budget', eval: 'results', graph: 'map' };
 
 export function AppRoutes() {
   return (
@@ -44,7 +44,11 @@ export function AppRoutes() {
             <Route index element={<Navigate to="live" replace />} />
             <Route path="live" element={<Live />} />
             <Route path="map" element={<MapPage />} />
-            <Route path="usps" element={<Usps />} />
+            <Route path="usps" element={<Navigate to="budget" replace />} />
+            <Route path="budget" element={<Usps n={1} />} />
+            <Route path="contagion" element={<Usps n={2} />} />
+            <Route path="signers" element={<Usps n={3} />} />
+            <Route path="pairing" element={<Usps n={4} />} />
             <Route path="evidence" element={<Evidence />} />
             <Route path="results" element={<Results />} />
             {['monitor', 'lab', 'replay', 'graph', 'witness', 'incidents', 'gauntlet', 'theatre', 'eval'].map((p) => (

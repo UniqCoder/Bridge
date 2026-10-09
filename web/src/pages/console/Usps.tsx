@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { SIGNAL_NAME, human, useMetrics, useReplayData, type Ev, type Metrics, type Replay } from '../../live/data';
 import { usd, utc } from '../../lib/format';
 import '../../live/pages.css';
@@ -8,55 +8,43 @@ const NUM = new Intl.NumberFormat('en-US');
 const usdShort = (v: number) => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(0)}k` : usd(v));
 const Wait = ({ what }: { what: string }) => <div className="demo-wait label">Loading {what}…</div>;
 
-const Cur = createContext(1);
+const IDEAS = [
+  { to: 'budget', name: 'Accusation Budget', tag: 'Fewer false alarms, guaranteed', answers: 'a risk-scored alert',
+    problem: 'Most tools shout whenever a number crosses a line, and nobody knows how often they are wrong. Teams stop listening, then miss the real attack.',
+    how: 'Every warning sign is compared with what normal traffic looked like recently, and the signs are combined into one evidence score. An alarm needs enough evidence, and “exploit” needs the deposit rule to break as well, so a scary-looking number alone can never accuse anyone.' },
+  { to: 'contagion', name: 'Contagion Radar', tag: 'Is the attack spreading?', answers: 'volume spikes',
+    problem: 'Nomad was not one big theft. One person found the bug, then hundreds of copycats pasted the same transaction with their own address. Size alerts see a lot of small payments, not a swarm.',
+    how: 'We fingerprint every release with the address hidden, so copy-paste releases land in one cluster. Then we measure whether each release is causing more releases. That number (n̂, the attack’s reproduction number) near or above 1 means it will keep going on its own: hold the route.' },
+  { to: 'signers', name: 'Signer DNA', tag: 'Who signed, from the chain itself', answers: 'unusual signer behaviour',
+    problem: 'Bridges release money when enough validators sign. Most demos make signers up. Real signatures sit inside transaction data, where almost nobody looks.',
+    how: 'We recover the signers of each Ronin withdrawal straight from the signatures (public math, no trust needed) and learn each validator’s normal habits. Then we report honestly what that showed.' },
+  { to: 'pairing', name: 'Ledger Pairing', tag: 'Every coin out needs a coin in', answers: 'mismatched deposit/withdrawal pairs',
+    problem: 'Many tools match a payout to a deposit by its message ID. Nomad’s copycats re-used real IDs, so those tools saw a match and stayed quiet.',
+    how: 'We match by amount, recipient and timing, one deposit to one payout, and each deposit can only be used once. A payout with no deposit behind it is unbacked. The gap between money in and money out is tracked live, and you can click to see who caused it.' },
+];
 
-export default function Usps() {
+/** One page per idea: what it is, why it matters, then a demo on real data. */
+export default function Usps({ n }: { n: 1 | 2 | 3 | 4 }) {
   const m = useMetrics();
-  const { hash } = useLocation();
-  const [cur, setCur] = useState(1);
-  useEffect(() => { const n = Number(hash.replace('#usp-', '')); if (n >= 1 && n <= 4) setCur(n); }, [hash]);
+  const idea = IDEAS[n - 1];
+  const Demo = [BudgetDemo, ContagionDemo, SignerDemo, PairingDemo][n - 1];
+  const next = IDEAS[n % 4];
   return (
-    <Cur.Provider value={cur}><div className="pg">
+    <div className="pg">
       <header className="pg-head">
-        <span className="label">Our four ideas · each one running on real data</span>
-        <h2 className="pg-title">Four ways we catch a bridge hack, and prove it.</h2>
-        <p className="pg-lede">A bridge holds coins on one chain and pays out the same coins on another. Every idea below checks a different part of that promise. Try each one; nothing here is a mock-up.</p>
-        <nav className="pg-pills" role="tablist" aria-label="Pick an idea">
-          {['Accusation Budget', 'Contagion Radar', 'Signer DNA', 'Ledger Pairing'].map((n, i) => <button key={n} aria-selected={cur === i + 1} onClick={() => setCur(i + 1)}><b>{i + 1}</b>{n}</button>)}
+        <span className="label">Idea {n} of 4 · running on real data</span>
+        <h2 className="pg-title">{idea.name}: {idea.tag.toLowerCase().replace(/\?$/, '')}{idea.tag.endsWith('?') ? '?' : '.'}</h2>
+        <p className="pg-lede">Challenge requirement it answers: <b>{idea.answers}</b>.</p>
+        <nav className="pg-pills" aria-label="The four ideas">
+          {IDEAS.map((x, i) => <Link key={x.to} to={`/console/${x.to}`} aria-current={i + 1 === n ? 'page' : undefined} className={i + 1 === n ? 'is-on' : ''}><b>{i + 1}</b>{x.name}</Link>)}
         </nav>
       </header>
-
-      <Usp n={1} name="Accusation Budget" tag="Fewer false alarms, guaranteed"
-        problem="Most tools shout whenever a number crosses a line, and nobody knows how often they are wrong. Teams stop listening, then miss the real attack."
-        how="Every warning sign is compared with what normal traffic looked like recently, and the signs are combined into one evidence score. An alarm needs enough evidence, and “exploit” needs the deposit rule to break as well, so a scary-looking number alone can never accuse anyone.">
-        <BudgetDemo m={m} />
-      </Usp>
-
-      <Usp n={2} name="Contagion Radar" tag="Is the attack spreading?"
-        problem="Nomad was not one big theft. One person found the bug, then hundreds of copycats pasted the same transaction with their own address. Size alerts see a lot of small payments, not a swarm."
-        how="We fingerprint every release with the address hidden, so copy-paste releases land in one cluster. Then we measure whether each release is causing more releases. That number (n̂, the attack's reproduction number) near or above 1 means it will keep going on its own: hold the route.">
-        <ContagionDemo m={m} />
-      </Usp>
-
-      <Usp n={3} name="Signer DNA" tag="Who signed, from the chain itself"
-        problem="Bridges release money when enough validators sign. Most demos make signers up. Real signatures sit inside transaction data, where almost nobody looks."
-        how="We recover the signers of each Ronin withdrawal straight from the signatures (public math, no trust needed) and learn each validator's normal habits. Then we report honestly what that showed.">
-        <SignerDemo m={m} />
-      </Usp>
-
-      <Usp n={4} name="Ledger Pairing" tag="Every coin out needs a coin in"
-        problem="Many tools match a payout to a deposit by its message ID. Nomad's copycats re-used real IDs, so those tools saw a match and stayed quiet."
-        how="We match by amount, recipient and timing, one deposit to one payout, and each deposit can only be used once. A payout with no deposit behind it is unbacked. The gap between money in and money out is tracked live, and you can click to see who caused it.">
-        <PairingDemo m={m} />
-      </Usp>
-
-      <footer className="pg-foot">Want to see all four working together on one timeline? <Link to="/console/live">Open the live console →</Link></footer>
-    </div></Cur.Provider>
+      <Usp n={n} name={idea.name} tag={idea.tag} problem={idea.problem} how={idea.how}><Demo m={m} /></Usp>
+      <footer className="pg-foot">Next idea: <Link to={`/console/${next.to}`}>{next.name} →</Link> · or see all four on one timeline in the <Link to="/console/live">live console</Link>.</footer>
+    </div>
   );
 }
-
 function Usp({ n, name, tag, problem, how, children }: { n: number; name: string; tag: string; problem: string; how: string; children: ReactNode }) {
-  if (useContext(Cur) !== n) return null;
   return (
     <section className="usp" id={`usp-${n}`}>
       <div className="usp-copy">

@@ -4,6 +4,7 @@
 .pg-title { font: 600 clamp(24px, 3vw, 38px)/1.12 var(--display); letter-spacing: -0.02em; margin: 0; }
 .pg-lede { color: var(--text-2); font-size: 16px; line-height: 1.6; margin: 0; max-width: 70ch; }
 .pg-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.pg-pills a.is-on { border-color: var(--verified); background: var(--verified-ink); }
 .pg-pills a, .pg-pills button { background: none; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; padding: 8px 14px; border: 1px solid var(--line-2); color: var(--text); text-decoration: none; font-size: 13px; }
 .pg-pills a:hover, .pg-pills button:hover, .pg-pills button[aria-selected='true'] { border-color: var(--verified); }
 .pg-pills button[aria-selected='true'] { background: var(--verified-ink); }
