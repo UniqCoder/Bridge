@@ -8,6 +8,7 @@ The API only streams these artifacts (keeps the Render container < 512 MB); noth
 import json
 import math
 import pickle
+import hashlib
 import time
 from pathlib import Path
 
@@ -15,14 +16,14 @@ import numpy as np
 import pandas as pd
 
 from .algos import (CopycatClusters, ECusum, MidasR, RollingConformal, e_mean, hawkes_branching,
-                    pair_and_ledger, p_to_e, shingles)
+                    pair_and_ledger, risk_score, shingles)
 from .ingest import FEEDS, load_events, load_pairs
 from .ml import CLF_FEATS, PRECEDENT, TYPE_TEXT, TYPES, AuthModel, DelayCQR, ExploitTyper, synth_training
 
 ROOT = Path(__file__).parent
 ART = ROOT / "artifacts"
 SEED = 2410
-ECUSUM_C = 1000.0       # e-CUSUM threshold: average run length to a false alarm >= 1000 normal withdrawals
+ECUSUM_C = 1000.0       # Advisory alarm threshold; rolling ranks do not establish a live false-alarm guarantee.
 HOLD_LATENCIES = [0, 60, 300, 900]
 
 # Time splits (unix seconds, UTC). Calibration = normal history; held-out = later normal days before the attack.
@@ -89,7 +90,7 @@ def simulated_events(seed=SEED):
     ev["feed"], ev["route"] = "simulated", "sim:ronin→ethereum"
     ev = ev.sort_values(["ts", "kind", "tx"], kind="stable").reset_index(drop=True)
     ev["ordinal"] = ev.groupby(["tx", "kind"]).cumcount()
-    ev["event_id"] = ev.tx.str[:18] + ":" + ev.kind.str[0] + ev.ordinal.astype(str)
+    ev["event_id"] = ev.tx + ":" + ev.kind.str[0] + ev.ordinal.astype(str)
     return ev
 
 
@@ -106,12 +107,13 @@ def stream_signals(ev, signers):
     seen_ids, max_id = set(), None
     batch = ev.groupby("tx").kind.transform("size").values
     t_start = ev.ts.iloc[0]
-    day_usd = ev[w].assign(d=ev.ts // 86400).groupby("d").value_usd.sum()
-    route_daily = float(day_usd.median()) if len(day_usd) else 1.0
-    cluster_times, hawkes_cache = {}, {}
+    day_usd = {}
+    hawkes_cache = {}
     msg = pd.to_numeric(ev.msg_id, errors="coerce").values
     for i, r in enumerate(ev.itertuples(index=False)):
         if r.kind != "withdrawal":
+            if not math.isnan(msg[i]):
+                max_id = msg[i] if max_id is None else max(max_id, msg[i])
             continue
         midas.advance(int((r.ts - t_start) // 60) + 1)
         S["midas"][i] = midas.score(f"m:{r.msg_id}", f"t:{r.symbol}")
@@ -121,25 +123,27 @@ def stream_signals(ev, signers):
                 q.popleft()
         expected10 = len(recent7d) * 600 / (7 * 86400)
         S["burst"][i] = math.log((len(recent10) + 1) / (expected10 + 1))
-        S["id_reused"][i] = r.msg_id in seen_ids
-        seen_ids.add(r.msg_id)
+        identity = (r.route, r.token, r.msg_id)
+        S["id_reused"][i] = identity in seen_ids
+        seen_ids.add(identity)
         if not math.isnan(msg[i]):
             S["id_jump"][i] = 0 if max_id is None else msg[i] - max_id
-            max_id = msg[i] if max_id is None else max(max_id, msg[i])
-        S["value_vs_route"][i] = float(r.value_usd or 0) / max(route_daily, 1.0)
+        day = int(r.ts // 86400)
+        prior_days = [v for d, v in day_usd.items() if day - 7 <= d < day]
+        route_daily = float(np.median(prior_days)) if prior_days else 1.0
+        value = float(r.value_usd) if pd.notna(r.value_usd) and math.isfinite(r.value_usd) and r.value_usd >= 0 else 0.0
+        S["value_vs_route"][i] = value / max(route_daily, 1.0)
+        day_usd[day] = day_usd.get(day, 0.0) + value
         root, size = lsh.add(r.event_id, shingles(r, batch[i]), r.ts)
         S["cluster"][i], S["cluster_size"][i] = root, size
         if size >= 8:  # exploit R0: Hawkes fit on this cluster's last 2 h, refreshed at most once a minute
-            times = cluster_times.setdefault(root, [])
-            times.append(r.ts)
-            recent = [t for t in times if t > r.ts - 7200][-150:]
+            # The LSH union may merge/change roots; use its complete merged history, not a second cache.
+            recent = lsh.times[root][-150:]
             key = (root, r.ts // 60)
             if key not in hawkes_cache and len(recent) >= 8:
                 fit = hawkes_branching(recent, horizon=r.ts + 1)
                 hawkes_cache[key] = fit[0] if fit else 0.0
             S["hawkes_n"][i] = hawkes_cache.get(key, 0.0)
-        else:
-            cluster_times.setdefault(root, []).append(r.ts)
     out = pd.DataFrame(S)
     out["cluster_log"] = np.log(np.maximum(out.cluster_size, 1))
     out["id_jump_pos"] = np.log1p(np.maximum(out.id_jump, 0))  # ids beyond anything issued so far
@@ -160,7 +164,7 @@ def stream_signals(ev, signers):
 
 def clf_frame(ev):
     return pd.DataFrame({
-        "unbacked": (ev.rule == "missing_source_deposit").astype(float),
+        "unbacked": ev.rule.isin(['missing_source_deposit', 'message_replayed']).astype(float),
         "amount_mismatch": (ev.rule == "amount_mismatch").astype(float),
         "recipient_mismatch": (ev.rule == "recipient_mismatch").astype(float),
         "id_reused": ev.id_reused.astype(float),
@@ -174,7 +178,7 @@ def clf_frame(ev):
 # ---------------------------------------------------------------- one feed end to end
 def run_feed(name, ev, delay, signers, typer=None):
     sp = SPLITS[name]
-    for k, v in pair_and_ledger(ev, delay.window).items():
+    for k, v in pair_and_ledger(ev, delay.window, source_complete=True).items():
         ev[k] = v
     sig = stream_signals(ev, signers if name != "nomad" else None)
     for c in sig.columns:
@@ -189,8 +193,11 @@ def run_feed(name, ev, delay, signers, typer=None):
     if name != "nomad":
         # time split inside the calibration period: fit on the first 2/3, conformal-calibrate on the last 1/3
         cut = ev.loc[cal, "ts"].quantile(2 / 3)
-        auth = AuthModel().fit(ev[cal & (ev.ts < cut)])
-        ev.loc[w, "auth"] = auth.score(ev[w])
+        auth = AuthModel().fit(ev[cal & (ev.ts < cut) & ev.quorum.notna()])
+        eligible = w & (ev.ts >= cut) & ev.quorum.notna() & (ev.status == 'consistent')
+        # Proven violations may receive advisory context too, but never missing-signature guesses.
+        eligible |= w & (ev.ts >= cut) & ev.quorum.notna() & (ev.status == 'violation')
+        ev.loc[eligible, "auth"] = auth.score(ev[eligible])
 
     # Rolling conformal p-values per signal: each release is compared with the latest 2,000 BACKED releases
     # before it (causal; label-free). ML2 scores enter its window only after ML2's training cut (no in-sample).
@@ -223,9 +230,10 @@ def run_feed(name, ev, delay, signers, typer=None):
 
     # Risk + level: only a broken conservation rule may say "exploit"
     viol = ev.status == "violation"
-    pc = ev.p_comb.fillna(1.0).astype(float)
-    ev["risk"] = np.where(viol, 70 + np.round(29 * (1 - pc)), np.minimum(69, np.round(100 * (1 - pc)))).astype(int)
-    ev.loc[~w, "risk"] = 0
+    breakdown = [risk_score(r.status, r.rule, r.value_usd, r.p_comb, r.cluster_size, r.alarm)
+                 for r in ev.itertuples()]
+    ev['risk_breakdown'] = breakdown
+    ev['risk'] = [b['total'] for b in breakdown]
     ev["level"] = np.where(viol, "exploit", np.where(ev.alarm, "suspicious", "none"))
     ev.loc[~w, "level"] = "none"
 
@@ -246,13 +254,17 @@ def baselines(ev, sp):
     w = ev[(ev.kind == "withdrawal") & (ev.ts >= sp["calib_end"])].copy()
     flags = {"B1 whale > $1M": w.value_usd.astype(float) > 1e6}
     bins = (w.ts // 600)
-    out_bin = w.groupby(bins).value_usd.sum()
-    hist = ev[(ev.kind == "withdrawal") & (ev.ts < sp["calib_end"])].groupby(lambda i: 0).size()
+    releases = ev[ev.kind == 'withdrawal']
+    out_bin = releases.groupby(releases.ts // 600).value_usd.sum()
+    out_bin = out_bin.reindex(range(int(out_bin.index.min()), int(out_bin.index.max()) + 1), fill_value=0)
     roll = out_bin.rolling(6 * 24 * 7, min_periods=12)
-    z = (out_bin - roll.mean().shift(1)) / roll.std().shift(1)
-    flags["B2 volume z-score > 3"] = bins.map(z.fillna(0)).values > 3
-    dep_ids = set(ev[ev.kind == "deposit"].msg_id)
-    flags["B3 message-id join"] = ~w.msg_id.isin(dep_ids)
+    mean, std = roll.mean().shift(1), roll.std().shift(1)
+    # Count only withdrawals already observed in the current bin, not the rest of its future outflow.
+    current = w.groupby(bins).value_usd.cumsum()
+    z = (current - bins.map(mean)) / bins.map(std).clip(lower=1)
+    flags['B2 volume z-score > 3'] = z.fillna(0).values > 3
+    deposit_times = ev[ev.kind == 'deposit'].groupby('msg_id').ts.min()
+    flags['B3 message-id join'] = w.msg_id.map(deposit_times).fillna(float('inf')) > w.ts
     flags["BridgeWitness (exploit)"] = (w.level == "exploit").values
     flags["BridgeWitness (any alert)"] = (w.level != "none").values
     rows = []
@@ -298,6 +310,12 @@ def to_replay(name, ev, sp, feats):
     deps = ev[ev.kind == "deposit"]
     dep_by_id = {r.event_id: r for r in deps.itertuples()}
     by_token = {k: g for k, g in deps.groupby("token")}
+    auth_by_key = {k: g for k, g in deps.groupby(['route', 'token', 'msg_id'])}
+    consistent = ev[(ev.kind == 'withdrawal') & (ev.status == 'consistent')]
+    used_by_key = {k: g for k, g in consistent.groupby(['route', 'token', 'msg_id'])}
+    def fact(row):
+        return {k: (int(row[k]) if k == 'ts' else str(row[k]))
+                for k in ('event_id', 'route', 'token', 'msg_id', 'amount', 'recipient', 'ts')}
     rec = []
     for i, r in win.iterrows():
         d = {"id": r.event_id, "ts": int(r.ts), "kind": r.kind, "tx": r.tx, "symbol": r.symbol,
@@ -305,6 +323,17 @@ def to_replay(name, ev, sp, feats):
              "msg_id": str(r.msg_id), "recipient": r.recipient, "truth": r.truth,
              "scenario": r.get("scenario") if isinstance(r.get("scenario"), str) else None}
         if r.kind == "withdrawal":
+            key = (r.route, r.token, r.msg_id)
+            auths = auth_by_key.get(key, deps.iloc[:0])
+            auths = auths[auths.ts <= r.ts]
+            prior = used_by_key.get(key, consistent.iloc[:0])
+            prior = prior[prior.index < i]
+            bundle = {'rule_version': 'exact-message-v1', 'release': fact(r),
+                      'authorizations': [fact(a) for _, a in auths.iterrows()],
+                      'previous_releases': [{**fact(p), 'matched': p.matched, 'status': p.status} for _, p in prior.iterrows()],
+                      'coverage': {'source_complete': True, 'mode': 'historical_dataset_assumption'}}
+            digest = hashlib.sha256(json.dumps(bundle, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()).hexdigest()
+            d['evidence'] = {'bundle': bundle, 'sha256': digest}
             # Plain facts a reader can re-check: what the full deposit history contains for this release.
             past = by_token.get(r.token)
             past = past[past.ts <= r.ts] if past is not None else deps.iloc[0:0]
@@ -328,7 +357,7 @@ def to_replay(name, ev, sp, feats):
                       "p_comb": None if r.p_comb is None else float(f"{r.p_comb:.3g}"),
                       "e_comb": None if r.e_comb is None else float(f"{r.e_comb:.3g}"),
                       "ecusum": None if r.ecusum is None else float(f"{r.ecusum:.3g}"), "alarm": bool(r.alarm),
-                      "risk": int(r.risk), "level": r.level,
+                      "risk": int(r.risk), "risk_breakdown": r.risk_breakdown, "level": r.level,
                       "type": r.type, "type_text": TYPE_TEXT.get(r.type), "type_prob": None if r.type_prob is None else round(r.type_prob, 3),
                       "precedent": PRECEDENT.get(r.type), "reasons": r.reasons})
         rec.append(d)
@@ -376,6 +405,7 @@ def main():
     ART.mkdir(exist_ok=True)
     signers = pd.read_parquet(ROOT / "data" / "signers.parquet")
     pairs = pd.concat([load_pairs("nomad"), load_pairs("ronin")])
+    pairs = pairs[pairs.ts < pairs.feed.map({f: SPLITS[f]['calib_end'] for f in FEEDS})]
     delay = DelayCQR().fit(pairs)
     print("ML1", delay.report)
 
@@ -397,6 +427,8 @@ def main():
     print("ML3", typer.report)
 
     metrics = {"signer_dna": signer_dna(signers), "generated_at": int(time.time()), "seed": SEED, "ecusum_threshold": ECUSUM_C,
+               'risk_policy': 'rule severity + capped exposure + campaign + advisory surprise; not probability',
+               'statistical_claim': 'observed replay false-alarm counts; rolling ranks do not prove an ARL guarantee',
                "ml1_delay_cqr": delay.report, "ml3_exploit_typer": typer.report, "feeds": {}}
     for name in feeds:
         ev, feats, auth = run_feed(name, feeds[name], delay, signers, typer)

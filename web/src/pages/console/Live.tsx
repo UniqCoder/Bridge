@@ -12,7 +12,8 @@ const SPEEDS = [60, 300, 1000, 3000];
 
 export default function Live() {
   const [qs, setQs] = useSearchParams();
-  const feed = (qs.get('feed') as FeedId) ?? 'nomad';
+  const requested = qs.get('feed');
+  const feed = FEEDS.some((f) => f.id === requested) ? requested as FeedId : 'nomad';
   const setFeed = (f: FeedId) => setQs({ feed: f }, { replace: true });
   return (
     <div className="live">
@@ -31,7 +32,7 @@ function ReplayView({ feed }: { feed: string }) {
   const { data, err } = useReplayData(feed);
   if (err) return <div className="plate live-msg">Could not load this replay: {err}</div>;
   if (!data) return <div className="plate live-msg label">Loading the replay…</div>;
-  return <Console data={data} />;
+  return <Console key={data.feed} data={data} />;
 }
 
 /** ?t=<unix seconds> deep-links to a moment in the replay (demo links, screenshots). */
@@ -60,6 +61,7 @@ function Console({ data }: { data: Replay }) {
   useEffect(() => {
     if (tour && !paused.current && v.alerts.length > 0) {
       paused.current = true; setPlaying(false); setSelected(v.alerts[0].id);
+      setT(v.alerts[0].ts);
     }
   }, [v.alerts.length, tour]);
 
@@ -81,7 +83,7 @@ function Console({ data }: { data: Replay }) {
       </details>
 
       <div className="live-transport plate">
-        <button className="btn btn--sm" onClick={() => setPlaying((p) => !p)} aria-label={playing ? 'Pause' : 'Play'}>{playing ? 'Pause' : t >= data.window[1] ? 'Finished' : 'Play'}</button>
+        <button className="btn btn--sm" onClick={() => { if (t >= data.window[1]) { setT(data.window[0]); paused.current = false; setSelected(null); } setPlaying((p) => !p); }} aria-label={playing ? 'Pause' : 'Play'}>{playing ? 'Pause' : t >= data.window[1] ? 'Replay' : 'Play'}</button>
         <div className="row" style={{ gap: 4 }} title="Replay speed">
           {SPEEDS.map((s) => <button key={s} className="btn btn--line btn--sm" aria-pressed={speed === s} onClick={() => setSpeed(s)}>{s}×</button>)}
         </div>
@@ -98,7 +100,7 @@ function Console({ data }: { data: Replay }) {
         <Stat k="No deposit behind it" v={usd(v.unbacked)} tone={v.unbacked > 0 ? 'bad' : undefined} />
         <Stat k="Exploit alerts" v={String(v.exploits.length)} tone={v.exploits.length ? 'bad' : undefined} />
         <Stat k="Suspicious (advice only)" v={String(suspicious)} tone={suspicious ? 'warn' : undefined} />
-        <Stat k="Attack spread" v={nNow.toFixed(2)} tone={nNow > 0.8 ? 'bad' : undefined} sub={nNow > 0.8 ? 'spreading by itself' : nNow > 0.3 ? 'building' : 'quiet'} />
+        <Stat k="Estimated spread" v={nNow.toFixed(2)} tone={nNow >= 1 ? 'warn' : undefined} sub={nNow >= 1 ? 'strong fitted spread' : nNow > 0.3 ? 'cluster building' : 'quiet'} />
       </div>
 
       <div className="live-main">
@@ -153,19 +155,19 @@ function AlertQueue({ alerts, selected, onSelect }: { alerts: Ev[]; selected: st
 
 const usdSmall = (v: number) => (v < 10 ? '$' + v.toFixed(2) : usd(v));
 const CHAIN: Record<number, string> = { 1: 'Ethereum', 10: 'Optimism', 56: 'BNB Chain', 137: 'Polygon', 8453: 'Base', 42161: 'Arbitrum', 59144: 'Linea', 324: 'zkSync' };
-const VERDICT_TEXT: Record<string, string> = { consistent: 'Backed', pending: 'Waiting', overdue: 'Late', unknown: 'Not enough data', violation: 'No deposit' };
+const VERDICT_TEXT: Record<string, string> = { reported_filled: 'Reported filled', refunded: 'Refunded', pending: 'Waiting', overdue: 'Late', unknown: 'Not enough data' };
 
 function LiveTail() {
   const { live, err } = useLive(true);
   return (
     <section className="plate">
       <header className="plate-head"><span className="label">A real bridge, right now · Across</span>
-        {live && <span className="mono small dim">updated {new Date(live.polled_at * 1000).toLocaleTimeString()}</span>}</header>
+        {!!live?.polled_at && <span className="mono small dim">last successful update {new Date(live.polled_at * 1000).toLocaleTimeString()}</span>}</header>
       <div className="plate-body">
         {err && <p className="bad">{err}</p>}
         {live?.error && <p className="warn">{live.error}</p>}
-        <p className="lede">These are the latest real transfers on the Across bridge, checked live. The rule is simple: <b>the value paid out must not exceed the value deposited</b> (we allow 1% + $1 for price rounding). Our learned models stay silent here on purpose: they have no history for these routes, and say so instead of guessing.</p>
-        {live && <div className="live-stats">{Object.entries(live.counts).map(([k, n]) => <Stat key={k} k={VERDICT_TEXT[k] ?? k} v={String(n)} tone={k === 'violation' && n ? 'bad' : k === 'consistent' ? 'ok' : undefined} />)}</div>}
+        <p className="lede">These are transfers reported by the Across API. Across uses relayer-funded fills, so a price comparison cannot prove whether a transfer is backed. We show reported fills, pending transfers and refunds. Chain finality and backing are not independently verified; our models abstain because these routes have no calibration history.</p>
+        {live && <div className="live-stats">{Object.entries(live.counts).map(([k, n]) => <Stat key={k} k={VERDICT_TEXT[k] ?? k} v={String(n)} />)}</div>}
         <div style={{ overflowX: 'auto' }}><table className="sc"><thead><tr><th>Result</th><th>Route</th><th>Token</th><th>Deposited</th><th>Paid out</th><th>Took</th><th>Deposit transaction</th></tr></thead><tbody>
           {live?.rows.map((r) => <tr key={r.id}><td className={`v-${r.verdict}`}>{VERDICT_TEXT[r.verdict]}</td><td>{CHAIN[r.src] ?? `chain ${r.src}`} → {CHAIN[r.dst] ?? `chain ${r.dst}`}</td><td>{r.symbol ?? '?'}</td>
             <td className="mono">{r.in_usd == null ? '—' : usdSmall(r.in_usd)}</td><td className="mono">{r.out_usd == null ? '—' : usdSmall(r.out_usd)}</td>

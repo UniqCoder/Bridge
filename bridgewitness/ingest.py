@@ -59,7 +59,7 @@ def load_events(feed):
     ev["route"] = FEEDS[feed]["route"]
     ev = ev.sort_values(["ts", "kind", "tx"], kind="stable").reset_index(drop=True)
     ev["ordinal"] = ev.groupby(["tx", "kind"]).cumcount()
-    ev["event_id"] = ev.tx.str[:18] + ":" + ev.kind.str[0] + ev.ordinal.astype(str)
+    ev["event_id"] = ev.tx + ":" + ev.kind.str[0] + ev.ordinal.astype(str)
     return ev
 
 

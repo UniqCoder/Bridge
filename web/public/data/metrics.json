@@ -65,33 +65,44 @@
    2000001
   ]
  },
- "generated_at": 1791549004,
+ "generated_at": 1791554893,
  "seed": 2410,
  "ecusum_threshold": 1000.0,
+ "risk_policy": "rule severity + capped exposure + campaign + advisory surprise; not probability",
+ "statistical_claim": "observed replay false-alarm counts; rolling ranks do not prove an ARL guarantee",
  "ml1_delay_cqr": {
   "miscoverage_target": 0.01,
-  "n_train": 16387,
-  "n_calib": 5462,
-  "n_test": 5463,
-  "test_coverage": 0.9875526267618525,
+  "n_train": 11501,
+  "n_calib": 3834,
+  "n_test": 3835,
+  "calibration": "separate per historical feed; chronological test; timing is advisory",
+  "fit_through": {
+   "nomad": 1654026587,
+   "ronin": 1644850718
+  },
+  "test_coverage": 0.9830508474576272,
   "test_coverage_by_feed": {
-   "nomad": 0.9955406911928651,
-   "ronin": 0.9859833552343408
+   "nomad": 0.9962406015037594,
+   "ronin": 0.9809264305177112
   },
   "median_window_s": {
    "nomad": [
-    597.0759236814395,
-    4463299.967269957
+    744.5054839252084,
+    915404.2797790886
    ],
    "ronin": [
-    50.28404287044249,
-    3501399.1843451164
+    47.04313288809785,
+    1916096.9720271607
    ]
   }
  },
  "ml3_exploit_typer": {
   "synthetic_holdout_accuracy": 1.0,
-  "note": "accuracy on held-out SYNTHETIC rows only; real incidents reported per incident"
+  "n_train": 7200,
+  "n_calibration": 2400,
+  "n_test": 2400,
+  "synthetic_test_log_loss": 3.241972768116618e-06,
+  "note": "disjoint synthetic train/calibration/test; model confidence is not a real-attack probability"
  },
  "feeds": {
   "nomad": {
@@ -104,14 +115,18 @@
    "heldout_false_alarms": 0,
    "heldout_false_alarm_rate": 0.0,
    "rules": {
-    "missing_source_deposit": 382
+    "recipient_mismatch": 334,
+    "missing_source_deposit": 45,
+    "amount_mismatch": 3
    },
-   "stat_alarms_on_attack": 179,
+   "stat_alarms_on_attack": 183,
    "stat_first_alarm_after_s": 0,
    "types_on_attack": {
-    "copycat_swarm": 324,
-    "message_replay": 53,
-    "unbacked_release": 5
+    "copycat_swarm": 317,
+    "recipient_mismatch": 28,
+    "message_replay": 22,
+    "unbacked_release": 10,
+    "amount_mismatch": 5
    },
    "max_cluster": 275,
    "max_hawkes_n": 0.979,
@@ -126,11 +141,11 @@
     },
     {
      "method": "B2 volume z-score > 3",
-     "attack_flagged": "357/382",
+     "attack_flagged": "321/382",
      "first_alert_after_s": 0,
      "usd_before_first_alert": 0.0,
-     "false_alerts": 41,
-     "false_alerts_per_day": 1.29
+     "false_alerts": 52,
+     "false_alerts_per_day": 1.63
     },
     {
      "method": "B3 message-id join",
@@ -232,8 +247,8 @@
      "attack_flagged": "1/2",
      "first_alert_after_s": 0,
      "usd_before_first_alert": 0.0,
-     "false_alerts": 78,
-     "false_alerts_per_day": 2.72
+     "false_alerts": 50,
+     "false_alerts_per_day": 1.75
     },
     {
      "method": "B3 message-id join",
@@ -302,10 +317,10 @@
     ]
    },
    "auth_attack_p": [
-    0.0125,
-    0.024
+    0.0605,
+    0.0615
    ],
-   "auth_heldout_median_p": 0.417
+   "auth_heldout_median_p": 0.501
   },
   "simulated": {
    "withdrawals": 18683,
@@ -317,16 +332,17 @@
    "heldout_false_alarms": 3,
    "heldout_false_alarm_rate": 0.00141,
    "rules": {
-    "missing_source_deposit": 28,
+    "missing_source_deposit": 27,
+    "message_replayed": 1,
     "amount_mismatch": 1,
     "recipient_mismatch": 1
    },
    "stat_alarms_on_attack": 12,
-   "stat_first_alarm_after_s": 4973,
+   "stat_first_alarm_after_s": 5034,
    "types_on_attack": {
-    "copycat_swarm": 19,
+    "copycat_swarm": 18,
     "message_replay": 6,
-    "unbacked_release": 2,
+    "unbacked_release": 3,
     "key_compromise": 1,
     "amount_mismatch": 1,
     "recipient_mismatch": 1
@@ -347,8 +363,8 @@
      "attack_flagged": "1/30",
      "first_alert_after_s": 3000,
      "usd_before_first_alert": 250068.49629303356,
-     "false_alerts": 32,
-     "false_alerts_per_day": 3.37
+     "false_alerts": 21,
+     "false_alerts_per_day": 2.21
     },
     {
      "method": "B3 message-id join",
@@ -417,38 +433,38 @@
     ]
    },
    "auth_attack_p": [
-    0.332,
-    0.463,
-    0.0155,
-    0.371,
-    0.658,
-    0.658,
-    0.658,
-    0.658,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.659,
-    0.255,
-    0.262
+    null,
+    null,
+    0.0717,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
    ],
-   "auth_heldout_median_p": 0.458,
+   "auth_heldout_median_p": 0.506,
    "scenarios": {
     "Amount mismatch": {
      "truth": "attack",
@@ -465,9 +481,9 @@
       "exploit": 25
      },
      "types": {
-      "copycat_swarm": 19,
+      "copycat_swarm": 18,
       "message_replay": 5,
-      "unbacked_release": 1
+      "unbacked_release": 2
      }
     },
     "Fake deposit": {

@@ -26,7 +26,7 @@ export function AlertCard({ e, data }: { e: Ev | null; data: Replay }) {
       </header>
       {e.type && <div className="ac-type">
         <strong>{TYPE_SHORT[e.type] ?? e.type}</strong>
-        <span className="mono dim"> · {Math.round((e.type_prob ?? 0) * 100)}% sure</span>
+        <span className="mono dim" title="Confidence from synthetic training; not a validated real-attack probability"> · model confidence {Math.round((e.type_prob ?? 0) * 100)}%</span>
         <p className="dim">{e.type_text}</p>
         {e.precedent && e.precedent !== '—' && <p className="ac-prec">Looks most like: <b>{e.precedent}</b></p>}
       </div>}
@@ -50,6 +50,7 @@ function Why({ e }: { e: Ev }) {
   const s = e.signals;
   return (
     <div className="ac-body">
+      {e.risk_breakdown && <p className="small">Priority: rule {e.risk_breakdown.base} + exposure {e.risk_breakdown.exposure} + campaign {e.risk_breakdown.campaign} + advisory context {e.risk_breakdown.behavior}, capped at {e.level === 'exploit' ? 100 : 69}. This ranks alerts; it is not an exploit probability.</p>}
       {e.reasons && e.reasons.length > 0 && <>
         <span className="label">What pushed this alert up</span>
         <ul className="ac-reasons">{e.reasons.map((r) => (
@@ -94,7 +95,7 @@ function Check({ e }: { e: Ev }) {
           <li>Same amount, other person: <b className="mono">{s.same_amount_other_recipient}</b></li>
           <li>Same message ID: <b className="mono">{s.same_message_id}</b></li>
         </ul></> : <p>No search data for this payout.</p>}
-      <p><Link className="small" to="/console/evidence">Open “Check it yourself” and try to cheat it →</Link></p>
+      <p><Link className="small" to={`/console/evidence?feed=${e.scenario ? 'simulated' : e.evidence?.bundle.release.route.startsWith('ronin') ? 'ronin' : 'nomad'}`}>Open “Check it yourself” and try to cheat it →</Link></p>
     </div>
   );
 }

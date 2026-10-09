@@ -1,86 +1,93 @@
 """The six deterministic algorithms (no training).
 
-A1 conservation ledger + rule verdicts   A2 Hungarian pairing        A3 MinHash-LSH copycat clusters
+A1 conservation ledger + rule verdicts   A2 exact message pairing    A3 MinHash-LSH copycat clusters
 A4 MIDAS-R edge-stream bursts            A5 Hawkes branching ratio   A6 conformal p -> e-values (averaged) -> e-CUSUM alarm
 """
 import math
+import hashlib
 from collections import defaultdict
 
 import numpy as np
 from datasketch import MinHash, MinHashLSH
-from scipy.optimize import linear_sum_assignment, minimize
+from scipy.optimize import minimize
+from scipy.special import expit
 
 # ---------------------------------------------------------------- A1 + A2: pairing and conservation ledger
-BIG = 1e6
+def assess_release(release, authorizations, previous_releases, source_complete=False):
+    """Exact one-deposit/one-release route rule; an observer must explicitly supply coverage."""
+    def amount(e):
+        s = e['amount']
+        if not isinstance(s, str) or not s.isascii() or not s.isdecimal() or int(s) >= 2**256:
+            raise ValueError('amount must be a uint256 decimal string')
+        return int(s)
+    amount(release)
+    if release.get('finalized') is False:
+        return 'pending', 'destination_not_finalized', None
+    key = tuple(release[k] for k in ('route', 'token', 'msg_id'))
+    auth = [d for d in authorizations if tuple(d[k] for k in ('route', 'token', 'msg_id')) == key
+            and d['ts'] <= release['ts'] and d.get('finalized') is not False]
+    if not auth:
+        return ('violation', 'missing_source_deposit', None) if source_complete else ('unknown', 'source_history_incomplete', None)
+    if len(auth) != 1:
+        return 'unknown', 'ambiguous_source_deposits', None
+    d = auth[0]
+    if amount(release) != amount(d):
+        return 'violation', 'amount_mismatch', d['event_id']
+    if release['recipient'].lower() != d['recipient'].lower():
+        return 'violation', 'recipient_mismatch', d['event_id']
+    if any(p.get('matched') == d['event_id'] and p.get('status') == 'consistent'
+           and p['ts'] <= release['ts'] and p['event_id'] != release['event_id'] for p in previous_releases):
+        return 'violation', 'message_replayed', d['event_id']
+    return 'consistent', None, d['event_id']
 
 
-def pair_and_ledger(ev, window_fn, batch_s=600):
-    """Match withdrawals to deposits per token with the Hungarian algorithm, then apply the backing rule.
-
-    window_fn(withdrawal_rows) -> (lo, hi) arrays: plausible deposit delay in seconds (ML1 interval).
-    Cost: exact amount+recipient inside window = 0, outside window = 1 (consistent, timing note),
-    amount-only or recipient-only agreement = 5 (mismatched pair), anything else infeasible.
-    Returns per-event columns: status, rule, matched (event_id of the deposit), delay, win_lo, win_hi.
-    """
+def pair_and_ledger(ev, window_fn, source_complete=False):
+    """Causal pairing by route/token/message; learned timing is advisory, never authorization."""
+    if not ev.ts.is_monotonic_increasing or ev.event_id.duplicated().any():
+        raise ValueError('events must be time-ordered with unique identities')
     out = {k: [None] * len(ev) for k in ("status", "rule", "matched", "delay", "win_lo", "win_hi")}
-    # Deposits stay open until claimed (real users claim up to months later). Indexed by (token, amount)
-    # and (token, recipient) so each withdrawal only sees plausible candidates.
-    by_amt, by_rcp = defaultdict(set), defaultdict(set)
-    ts, kind, tok = ev.ts.values, ev.kind.values, ev.token.values
-    amt, rcp, eid = ev.amount.values, ev.recipient.values, ev.event_id.values
-    w_idx = np.where(kind == "withdrawal")[0]
+    w_idx = np.where(ev.kind.values == "withdrawal")[0]
     lo_all, hi_all = window_fn(ev.iloc[w_idx])
     win = {i: (lo, hi) for i, lo, hi in zip(w_idx, lo_all, hi_all)}
-    i, n = 0, len(ev)
-    while i < n:
-        t0 = ts[i]
-        j = i
-        while j < n and ts[j] < t0 + batch_s:
-            j += 1
-        for k in range(i, j):  # deposits of this batch become available first (delay is always > 0)
-            if kind[k] == "deposit":
-                by_amt[(tok[k], amt[k])].add(k)
-                by_rcp[(tok[k], rcp[k])].add(k)
-                out["status"][k] = "deposit"
-        by_tok = defaultdict(list)
-        for k in range(i, j):
-            if kind[k] == "withdrawal":
-                by_tok[tok[k]].append(k)
-        for t, ws in by_tok.items():
-            pool = sorted(set().union(*[by_amt[(t, amt[w])] | by_rcp[(t, rcp[w])] for w in ws]))
-            cost = np.full((len(ws), max(len(pool), 1)), BIG)
-            for a, w in enumerate(ws):
-                lo, hi = win[w]
-                for b, d in enumerate(pool):
-                    if ts[d] > ts[w]:
-                        continue
-                    same_amt, same_rcp = amt[d] == amt[w], rcp[d] == rcp[w]
-                    if same_amt and same_rcp:
-                        cost[a, b] = 0 if lo <= ts[w] - ts[d] <= hi else 1
-                    elif same_amt or same_rcp:
-                        cost[a, b] = 5
-            rows, cols = linear_sum_assignment(cost) if pool else ([], [])
-            got = {r: c for r, c in zip(rows, cols) if cost[r, c] < BIG}
-            used = set()
-            for a, w in enumerate(ws):
-                lo, hi = win[w]
-                out["win_lo"][w], out["win_hi"][w] = float(lo), float(hi)
-                if a in got and cost[a, got[a]] <= 1:
-                    d = pool[got[a]]
-                    used.add(d)
-                    out["status"][w], out["matched"][w], out["delay"][w] = "consistent", eid[d], float(ts[w] - ts[d])
-                    out["rule"][w] = None if cost[a, got[a]] == 0 else "outside_usual_delay"
-                elif a in got:  # partial agreement: the release does not match what was deposited
-                    d = pool[got[a]]
-                    out["status"][w], out["matched"][w] = "violation", eid[d]
-                    out["rule"][w] = "amount_mismatch" if rcp[d] == rcp[w] else "recipient_mismatch"
-                else:
-                    out["status"][w], out["rule"][w] = "violation", "missing_source_deposit"
-            for d in used:
-                by_amt[(t, amt[d])].discard(d)
-                by_rcp[(t, rcp[d])].discard(d)
-        i = j
+    deposits, used = defaultdict(list), defaultdict(list)
+    for i, r in enumerate(ev.to_dict('records')):
+        key = tuple(r[k] for k in ('route', 'token', 'msg_id'))
+        if r['kind'] == 'deposit':
+            deposits[key].append(r)
+            out['status'][i] = 'deposit'
+            continue
+        lo, hi = win[i]
+        if not (math.isfinite(lo) and math.isfinite(hi) and 0 <= lo <= hi):
+            raise ValueError('invalid delay window')
+        out['win_lo'][i], out['win_hi'][i] = float(lo), float(hi)
+        status, rule, matched = assess_release(r, deposits[key], used[key], source_complete)
+        out['status'][i], out['rule'][i], out['matched'][i] = status, rule, matched
+        if matched:
+            d = next(d for d in deposits[key] if d['event_id'] == matched)
+            out['delay'][i] = float(r['ts'] - d['ts'])
+            if status == 'consistent' and not lo <= out['delay'][i] <= hi:
+                out['rule'][i] = 'outside_usual_delay'
+        used[key].append({**r, 'matched': matched, 'status': status})
     return out
+
+
+def risk_score(status, rule, usd, p_comb, cluster_size=1, alarm=False):
+    """Operator priority, not an exploit probability. ML never changes the rule verdict."""
+    if status not in ('consistent', 'violation'):
+        return {'base': 0, 'exposure': 0, 'campaign': 0, 'behavior': 0, 'total': 0}
+    p = p_comb if p_comb is not None and math.isfinite(p_comb) and 0 < p_comb <= 1 else 1
+    surprise = min(1.0, -math.log10(p) / 3)
+    if status == 'violation':
+        base = {'message_replayed': 85, 'missing_source_deposit': 80,
+                'recipient_mismatch': 75, 'amount_mismatch': 70}.get(rule, 70)
+        exposure = round(min(15, 2.5 * math.log10(1 + usd))) if usd is not None and math.isfinite(usd) and usd >= 0 else 0
+        campaign = 5 if cluster_size >= 5 else 0
+        behavior = round(5 * surprise)
+    else:
+        base, exposure, campaign = 20 if alarm else 0, 0, 0
+        behavior = round(49 * surprise)
+    return {'base': base, 'exposure': exposure, 'campaign': campaign,
+            'behavior': behavior, 'total': min(100 if status == 'violation' else 69, base + exposure + campaign + behavior)}
 
 
 # ---------------------------------------------------------------- A3: MinHash-LSH copycat clusters
@@ -139,7 +146,8 @@ class MidasR:
         self.buckets, self.decay, self.tick = buckets, decay, 1
 
     def _idx(self, key):
-        h = (self.a * (hash(key) & 0x7FFFFFFF) + self.b) % 2147483647 % self.buckets
+        stable = int.from_bytes(hashlib.blake2s(repr(key).encode(), digest_size=4).digest(), 'big') & 0x7FFFFFFF
+        h = (self.a * stable + self.b) % 2147483647 % self.buckets
         return np.arange(len(h)), h
 
     def advance(self, tick):
@@ -165,7 +173,7 @@ LOG_SPAN = 0.0
 
 
 def _beta(x):
-    return BETA_MIN + (BETA_MAX - BETA_MIN) / (1 + np.exp(-x))
+    return BETA_MIN + (BETA_MAX - BETA_MIN) * expit(x)
 
 
 def hawkes_branching(times, horizon=None):
@@ -181,7 +189,7 @@ def hawkes_branching(times, horizon=None):
     T = max(T, t[-1] + 1.0)
 
     def nll(p):
-        mu, n, beta = np.exp(p[0]), 3.0 / (1 + np.exp(-p[1])), _beta(p[2])
+        mu, n, beta = np.exp(np.clip(p[0], -30, 30)), 3.0 * expit(p[1]), _beta(p[2])
         a = np.zeros(len(t))
         for i in range(1, len(t)):
             a[i] = math.exp(-beta * (t[i] - t[i - 1])) * (1 + a[i - 1])
@@ -195,7 +203,7 @@ def hawkes_branching(times, horizon=None):
                      options={"maxiter": 400, "xatol": 1e-3, "fatol": 1e-3})
         if best is None or r.fun < best.fun:
             best = r
-    mu, n, beta = math.exp(best.x[0]), 3.0 / (1 + math.exp(-best.x[1])), float(_beta(best.x[2]))
+    mu, n, beta = math.exp(np.clip(best.x[0], -30, 30)), 3.0 * expit(best.x[1]), float(_beta(best.x[2]))
     return n, mu, beta
 
 
@@ -245,7 +253,7 @@ def e_mean(ps):
     """Combine signals by averaging their e-values (Vovk & Wang, Ann. Stat. 2021): the mean of e-values is an
     e-value under ANY dependence, and an uninformative signal (p ~ 1) adds ~0 instead of cancelling evidence.
     Returns (e, p) with p = min(1, 1/e) (Markov), used for display and the risk score."""
-    es = [p_to_e(max(p, 1e-15)) for p in ps if p is not None and math.isfinite(p)]
+    es = [p_to_e(max(p, 1e-15)) for p in ps if p is not None and math.isfinite(p) and 0 < p <= 1]
     if not es:
         return None, None
     e = float(np.mean(es))

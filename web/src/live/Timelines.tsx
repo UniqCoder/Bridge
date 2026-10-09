@@ -14,12 +14,12 @@ export const CHARTS: Spec[] = [
     series: [
       { label: 'has a deposit', color: '#2fd4b5', get: (k) => k.backed_usd, fill: 'rgba(47,212,181,0.08)' },
       { label: 'no deposit', color: '#ff6a3d', get: (k) => k.unbacked_usd, fill: 'rgba(255,106,61,0.14)' }] },
-  { title: 'Is the attack spreading?', note: 'copycats in the biggest cluster, and attack spread (1.0 = keeps going on its own)',
+  { title: 'Is the attack spreading?', note: 'cluster size and fitted spread estimate; timing alone does not prove copying',
     series: [
       { label: 'copycats', color: '#ff6a3d', get: (k) => k.cluster_max },
       { label: 'spread', color: '#e3b04b', get: (k) => k.hawkes_n, scale: 'n' }],
     scales: { n: { range: [0, 3.2] } } },
-  { title: 'Alarm evidence', note: 'builds up as unusual payouts pile up; crossing the line is an alarm (about one false alarm per 1,000 normal payouts)',
+  { title: 'Alarm evidence', note: 'advisory evidence accumulates to the alarm threshold; false alarms are measured on replay',
     series: [{ label: 'evidence', color: '#e3b04b', get: (k) => (k.ecusum > 0 ? Math.log10(k.ecusum) : 0) }],
     scales: { y: { range: [-1, 6] } }, hline: { y: 3, label: 'alarm line' } },
 ];
@@ -61,8 +61,8 @@ export function Timeline({ data, t, spec, idx }: { data: Replay; t: number; spec
   useEffect(() => {
     const u = plot.current;
     if (!u) return;
-    const xs = data.ticks.map((k) => k.t);
-    const ys = spec.series.map((s) => data.ticks.map((k) => (k.t <= t ? s.get(k) : null)));
+    const xs = data.ticks.map((k) => k.t + 60);
+    const ys = spec.series.map((s) => data.ticks.map((k) => (k.t + 60 <= t ? s.get(k) : null)));
     u.setData([xs, ...ys] as uPlot.AlignedData);
   }, [data, spec, Math.floor(t / 30)]);
 

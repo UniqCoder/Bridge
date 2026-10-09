@@ -21,11 +21,11 @@ def main():
         "Ronin: 2/2 attack releases are exploits": F["ronin"]["attack_flagged_exploit"] == 2,
         "Simulated: 30/30 attack releases are exploits": F["simulated"]["attack_flagged_exploit"] == 30,
         "No 'exploit' label on any normal or control release": all(F[f]["normal_false_exploit"] == 0 for f in F),
-        "e-CUSUM held-out false-alarm rate <= 1/1000 per release (+ slack)": all(
+        "Observed held-out advisory false-alarm rate <= 0.2% on these replays": all(
             (F[f]["heldout_false_alarm_rate"] or 0) <= 2e-3 for f in F),
         "Ronin attacks typed key_compromise": F["ronin"]["types_on_attack"].get("key_compromise") == 2,
-        "Nomad mostly typed copycat swarm / replay": F["nomad"]["types_on_attack"].get("copycat_swarm", 0)
-            + F["nomad"]["types_on_attack"].get("message_replay", 0) >= 0.9 * 382,
+        "All Nomad exploit types are non-benign and accounted for": sum(F['nomad']['types_on_attack'].values()) == 382
+            and not any(t.startswith('benign') for t in F['nomad']['types_on_attack']),
         "Nomad copycat cluster >= 250 and Hawkes n near-critical (> 0.9)":
             F["nomad"]["max_cluster"] >= 250 and F["nomad"]["max_hawkes_n"] > 0.9,
         "Never 'key compromise' without recovered signatures (Nomad has none)":
@@ -42,7 +42,7 @@ def main():
         e.get("level") == "exploit" for e in rep["events"] if e["truth"] == "normal")
     sig = pd.read_parquet(Path(__file__).parent / "data" / "signers.parquet")
     att = sig[sig.is_attack]
-    checks["Ronin attack signers = the 5 verified validators"] = all(
+    checks["Ronin attack signers = the 5 verified validators"] = len(att) == 2 and all(
         sorted(s.split(",")) == ATTACK_SIGNERS for s in att.signers)
     for k, ok in checks.items():
         print("PASS" if ok else "FAIL", k)

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Seg } from './Usps';
 import { RULE_TEXT, SOURCE_CHAIN, TYPE_SHORT, human, txUrl, useReplayData, type Ev, type Replay } from '../../live/data';
 import { duration, usd, utc } from '../../lib/format';
+import { verifyEvidence } from '../../live/verifyEvidence';
 import '../../live/pages.css';
 
 const NUM = new Intl.NumberFormat('en-US');
@@ -85,35 +86,43 @@ function Detail({ e, feed }: { e: Ev; feed: string }) {
       {bad && s.same_message_id > 0 && <p className="note warn">A deposit with this message ID exists, so a tool matching by ID alone would have said “fine”. Its amount or recipient is different, so we do not accept it.</p>}
       {e.deposit && <p className="lede">Matched deposit: {SOURCE_CHAIN[feed]} {dep ? <a href={dep} target="_blank" rel="noreferrer" className="mono">{e.deposit.tx.slice(0, 14)}… ↗</a> : <span className="mono">{e.deposit.tx.slice(0, 14)}…</span>}, {utc(e.deposit.ts).slice(0, 19)}.</p>}
 
-      {e.type && bad && <p className="note">Our read of what kind of attack this looks like: <b>{TYPE_SHORT[e.type] ?? e.type}</b> ({Math.round((e.type_prob ?? 0) * 100)}% confident, from past incidents). That part is advice; the deposit check above is the proof.</p>}
+      {e.type && bad && <p className="note">Suggested attack type: <b>{TYPE_SHORT[e.type] ?? e.type}</b>. Its model confidence is trained on synthetic scenarios, not a measured probability for real attacks.</p>}
 
-      {e.deposit && !bad && <Cheat e={e} />}
+      <EvidenceCheck e={e} />
       <p className="note">Checked against every deposit in the dataset, not just the part of the replay you can see. Data: XChainWatcher's public Nomad and Ronin transfers. Their labels are the reference here, which we say openly.</p>
     </section>
   );
 }
 
 /** Edit a backed payout and the same check runs again in your browser. */
-function Cheat({ e }: { e: Ev }) {
-  const dep = e.deposit!;
-  const [amt, setAmt] = useState(BigInt(e.amount));
-  const [rcp, setRcp] = useState(e.recipient);
-  const changed = amt !== BigInt(dep.amount) || rcp !== dep.recipient;
-  const why = amt !== BigInt(dep.amount) ? `The deposit was ${human(dep.amount, e.decimals)}, not ${human(amt.toString(), e.decimals)}.` : rcp !== dep.recipient ? 'The deposit was made for a different person.' : '';
+function EvidenceCheck({ e }: { e: Ev }) {
+  const [edit, setEdit] = useState<'original' | 'amount' | 'recipient'>('original');
+  const [result, setResult] = useState<Awaited<ReturnType<typeof verifyEvidence>> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const verify = async (mode: typeof edit) => {
+    setEdit(mode); setResult(null); setError(null);
+    if (!e.evidence) { setError('This replay needs regenerated evidence artifacts.'); return; }
+    const bundle = structuredClone(e.evidence.bundle);
+    if (mode === 'amount') bundle.release.amount = (BigInt(bundle.release.amount) + 1n).toString();
+    if (mode === 'recipient') bundle.release.recipient = '0x' + 'ab'.repeat(20);
+    try { setResult(await verifyEvidence(bundle, e.evidence.sha256)); }
+    catch (err) { setError(String(err)); }
+  };
   return (
     <div className="cheat">
-      <h4>Try to cheat it</h4>
-      <p className="lede">Change this payout and run the check again, right here in your browser.</p>
+      <h4>Verify the supplied evidence</h4>
+      <p className="lede">Your browser checks the SHA-256 digest and recomputes the message, amount, recipient and prior-use rule.</p>
       <div className="row-wrap">
-        <button className="btn btn--line btn--sm" onClick={() => setAmt(amt + 1n)}>Add 1 tiny unit</button>
-        <button className="btn btn--line btn--sm" onClick={() => setAmt(amt * 2n)}>Double the amount</button>
-        <button className="btn btn--line btn--sm" onClick={() => setRcp('0x' + 'ab'.repeat(20))}>Send it to someone else</button>
-        <button className="btn btn--line btn--sm" onClick={() => { setAmt(BigInt(e.amount)); setRcp(e.recipient); }}>Reset</button>
+        <button className="btn btn--line btn--sm" onClick={() => void verify('original')}>Verify original</button>
+        <button className="btn btn--line btn--sm" onClick={() => void verify('amount')}>Add 1 tiny unit</button>
+        <button className="btn btn--line btn--sm" onClick={() => void verify('recipient')}>Send it to someone else</button>
       </div>
-      <div className={`ev-verdict ${changed ? 'is-bad' : 'is-ok'}`}>
-        <b>{changed ? 'Now unbacked: it would be flagged' : 'Still backed'}</b>
-        <span>{changed ? `${why} One tiny unit is enough: payouts must match deposits exactly.` : `Matches the deposit exactly (${human(amt.toString(), e.decimals)} to the same person).`}</span>
-      </div>
+      {error && <p role="alert" className="bad">{error}</p>}
+      {result && <div className={`ev-verdict ${result.integrity ? 'is-ok' : 'is-bad'}`} role="status">
+        <b>{result.integrity ? 'Digest matches the original exhibit' : 'Tampering detected: digest does not match'}</b>
+        <span>Recomputed: {result.status} · {RULE_TEXT[result.rule ?? ''] ?? result.rule ?? 'exact backing checks pass'}{edit === 'original' && result.status !== e.status ? ' · differs from reported verdict' : ''}</span>
+      </div>}
+      <p className="note">This checks supplied dataset evidence. The server still supplies the history and its completeness claim; this is not an on-chain proof that a deposit never existed.</p>
     </div>
   );
 }

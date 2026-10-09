@@ -21,7 +21,7 @@ QUIET = dict(verbose=-1, random_state=SEED, n_jobs=1)
 def delay_features(df):
     t = pd.to_datetime(df.ts, unit="s")
     return pd.DataFrame({
-        "feed": (df.feed == "ronin").astype(int).values,
+        "feed": df.feed.isin(['ronin', 'simulated']).astype(int).values,
         "token": df.token.map(lambda a: int(a[2:10], 16) % 997).values,
         "log_usd": np.log1p(df.value_usd.fillna(0).astype(float)).values,
         "hour": t.dt.hour.values, "weekday": t.dt.weekday.values,
@@ -29,7 +29,7 @@ def delay_features(df):
 
 
 class DelayCQR:
-    """Predicts a [lo, hi] window for deposit->withdrawal delay with conformal coverage 1 - miscoverage."""
+    """Advisory delay intervals; report measured coverage, not a future traffic guarantee."""
 
     def __init__(self, miscoverage=0.01):
         self.a = miscoverage
@@ -49,10 +49,16 @@ class DelayCQR:
         lo, hi = self._raw(ca)
         scores = np.maximum(lo - y(ca), y(ca) - hi)
         n = len(scores)
-        self.q = float(np.quantile(scores, min(1.0, math.ceil((n + 1) * (1 - self.a)) / n), method="higher"))
+        self.q = {}
+        for feed in sorted(ca.feed.unique()):
+            sc = scores[ca.feed.values == feed]
+            rank = min(len(sc), math.ceil((len(sc) + 1) * (1 - self.a)))
+            self.q[feed] = max(0.0, float(np.sort(sc)[rank - 1]))
         lo, hi = self.window_log(te)
         yt = y(te)
         self.report = {"miscoverage_target": self.a, "n_train": len(tr), "n_calib": len(ca), "n_test": len(te),
+                       "calibration": "separate per historical feed; chronological test; timing is advisory",
+                       "fit_through": {f: int(ca[ca.feed == f].ts.max()) for f in sorted(ca.feed.unique())},
                        "test_coverage": float(np.mean((yt >= lo) & (yt <= hi))),
                        "test_coverage_by_feed": {f: float(np.mean(((yt >= lo) & (yt <= hi))[te.feed.values == f]))
                                                  for f in sorted(te.feed.unique())},
@@ -68,7 +74,11 @@ class DelayCQR:
 
     def window_log(self, df):
         lo, hi = self._raw(df)
-        return lo - self.q, hi + self.q
+        feeds = df.feed.replace({'simulated': 'ronin'})
+        q = feeds.map(self.q)
+        if q.isna().any():
+            raise ValueError('delay model has no calibration for this feed')
+        return lo - q.values, hi + q.values
 
     def window(self, df):
         lo, hi = self.window_log(df)
@@ -87,9 +97,11 @@ class AuthModel:
         q = train.quorum.dropna()
         self.qcount, self.qtotal, self.alpha = Counter(q), len(q), alpha
         self.K = max(len(self.qcount), 1) + 1
-        self.fill = {"n_signers": float(train.n_signers.median()) if train.n_signers.notna().any() else 0.0}
+        qs = np.array([self.surprisal(q) for q in train.quorum.dropna()])
+        self.fill = {"n_signers": float(train.n_signers.median()) if train.n_signers.notna().any() else 0.0,
+                     "quorum_surprisal": float(np.median(qs)) if len(qs) else 0.0}
         X = self.features(train)
-        self.forest = IsolationForest(n_estimators=200, random_state=SEED).fit(X)
+        self.forest = IsolationForest(n_estimators=200, random_state=SEED, n_jobs=1).fit(X)
         return self
 
     def surprisal(self, quorum):
@@ -101,14 +113,17 @@ class AuthModel:
     def features(self, df):
         X = pd.DataFrame({
             "id_jump_log": np.sign(df.id_jump) * np.log1p(np.abs(df.id_jump)),
-            "log_usd": np.log1p(df.value_usd.astype(float)),
+            "log_usd": np.log1p(df.value_usd.fillna(0).astype(float).clip(lower=0)),
             "hour": pd.to_datetime(df.ts, unit="s").dt.hour,
             "n_signers": df.n_signers.fillna(self.fill["n_signers"]),
             "quorum_surprisal": [self.surprisal(q) for q in df.quorum],
             "signers_known": df.quorum.notna().astype(int),
         })
-        X["quorum_surprisal"] = X.quorum_surprisal.fillna(X.quorum_surprisal.median() if X.quorum_surprisal.notna().any() else 0)
-        return X[self.FEATS].values
+        X['quorum_surprisal'] = X.quorum_surprisal.fillna(self.fill['quorum_surprisal'])
+        features = X[self.FEATS].values
+        if not np.isfinite(features).all():
+            raise ValueError('authorization features must be finite')
+        return features
 
     def score(self, df):
         return -self.forest.score_samples(self.features(df))  # higher = more anomalous
@@ -157,10 +172,14 @@ def synth_training(normal_feats, n_per=1500, seed=SEED):
                 r.update(unbacked=1, id_reused=0, hawkes_n=0.0, id_jump_log=U(0, 5))
                 size = int(rng.integers(1, 3))
             elif typ == "message_replay":
-                r.update(unbacked=1, id_reused=1, hawkes_n=0.0, recipient_mismatch=int(rng.random() < .3))
+                r.update(unbacked=1, id_reused=1, hawkes_n=0.0)
                 size = int(rng.integers(1, 7))
             elif typ == "copycat_swarm":
-                r.update(unbacked=1, id_reused=int(rng.random() < .85), hawkes_n=U(.4, 1.5), midas=U(2, 12))
+                r.update(unbacked=1, id_reused=int(rng.random() < .85), hawkes_n=U(.4, 3), midas=U(2, 15),
+                         id_jump_log=U(-15, 16), signed=int(rng.random() < .3))
+                # Copycats often substitute the recipient on an existing authorization (Nomad pattern).
+                if rng.random() < .8:
+                    r.update(unbacked=0, recipient_mismatch=1)
                 size = int(rng.integers(8, 400))
             elif typ == "key_compromise":
                 r.update(unbacked=1, id_reused=0, hawkes_n=0.0, signed=1.0,
@@ -187,15 +206,18 @@ class ExploitTyper:
         yi = np.array([TYPES.index(v) for v in y])
         rng = np.random.default_rng(seed)
         idx = rng.permutation(len(X))
-        cut = int(.8 * len(X))
-        tr, ca = idx[:cut], idx[cut:]
+        cut, end = int(.6 * len(X)), int(.8 * len(X))
+        tr, ca, te = idx[:cut], idx[cut:end], idx[end:]
         self.model = lgb.LGBMClassifier(objective="multiclass", n_estimators=200, learning_rate=.08, num_leaves=15,
                                         **QUIET).fit(X.iloc[tr], yi[tr])
         P = self.model.predict_proba(X.iloc[ca])
         self.iso = [IsotonicRegression(out_of_bounds="clip", y_min=0, y_max=1).fit(P[:, k], yi[ca] == k)
                     for k in range(len(TYPES))]
-        self.report = {"synthetic_holdout_accuracy": float(np.mean(self.predict(X.iloc[ca])[0] == yi[ca])),
-                       "note": "accuracy on held-out SYNTHETIC rows only; real incidents reported per incident"}
+        pred, probs = self.predict(X.iloc[te])
+        self.report = {"synthetic_holdout_accuracy": float(np.mean(pred == yi[te])),
+                       "n_train": len(tr), "n_calibration": len(ca), "n_test": len(te),
+                       "synthetic_test_log_loss": float(-np.log(probs[np.arange(len(te)), yi[te]].clip(1e-15)).mean()),
+                       "note": "disjoint synthetic train/calibration/test; model confidence is not a real-attack probability"}
         return self
 
     def predict(self, X):
@@ -207,6 +229,12 @@ class ExploitTyper:
         C = np.where(viol, C * ALLOWED_VIOL, C * ALLOWED_OK)
         # "Key compromise" claims someone signed with stolen keys: only allowed when signatures were recovered.
         C[:, TYPES.index("key_compromise")] *= X["signed"].values > 0
+        clustered = X['cluster_log'].values >= math.log(8)
+        C[~clustered, TYPES.index('copycat_swarm')] = 0
+        for feature, label in [('amount_mismatch', 'amount_mismatch'), ('recipient_mismatch', 'recipient_mismatch')]:
+            exact = (X[feature].values > 0) & ~clustered
+            C[exact] = 0
+            C[exact, TYPES.index(label)] = 1
         C = C / C.sum(1, keepdims=True)
         return C.argmax(1), C
 

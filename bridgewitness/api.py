@@ -22,7 +22,8 @@ METRICS = json.loads((ART / "metrics.json").read_text(encoding="utf-8"))
 app = FastAPI(title="BridgeWitness", version="3.0")
 app.add_middleware(CORSMiddleware, allow_origins=os.environ.get("BW_ALLOWED_ORIGIN", "*").split(","),
                    allow_methods=["GET"], allow_headers=["*"])
-_live = {"at": 0, "rows": [], "error": None}
+_live = {'at': 0, 'successful_at': 0, 'rows': [], 'error': None}
+_live_lock = asyncio.Lock()
 
 
 @app.get("/health")
@@ -54,7 +55,9 @@ async def stream(feed: str, speed: float = Query(60, ge=1, le=5000), start: int 
     if feed not in REPLAYS:
         raise HTTPException(404, "unknown feed")
     r = REPLAYS[feed]
-    t0 = start or r["window"][0]
+    t0 = r['window'][0] if start is None else start
+    if not r['window'][0] <= t0 <= r['window'][1]:
+        raise HTTPException(400, 'start is outside replay window')
     items = [(e["ts"], "event", e) for e in r["events"] if e["ts"] >= t0] + \
             [(k["t"] + 59, "tick", k) for k in r["ticks"] if k["t"] >= t0]
     items.sort(key=lambda x: (x[0], x[1] == "tick"))
@@ -62,9 +65,10 @@ async def stream(feed: str, speed: float = Query(60, ge=1, le=5000), start: int 
     async def gen():
         wall0 = time.monotonic()
         for ts, kind, payload in items:
-            delay = (ts - t0) / speed - (time.monotonic() - wall0)
-            if delay > 0:
+            while (delay := (ts - t0) / speed - (time.monotonic() - wall0)) > 0:
                 await asyncio.sleep(min(delay, 15))
+                if delay > 15:
+                    yield ': heartbeat\n\n'
             yield f"event: {kind}\ndata: {json.dumps(payload)}\n\n"
         yield "event: end\ndata: {}\n\n"
 
@@ -74,14 +78,16 @@ async def stream(feed: str, speed: float = Query(60, ge=1, le=5000), start: int 
 
 @app.get("/live")
 async def live():
-    if time.time() - _live["at"] > 15:  # poll Across at most every 15 s, shared by all viewers
-        try:
-            _live["rows"] = await asyncio.to_thread(live_tail.poll)
-            _live["error"] = None
-        except Exception as e:  # upstream down: keep last rows, say so
-            _live["error"] = f"Across API unavailable: {type(e).__name__}"
-        _live["at"] = time.time()
+    async with _live_lock:
+        if time.time() - _live['at'] > 15:
+            try:
+                _live['rows'] = await asyncio.to_thread(live_tail.poll)
+                _live['error'] = None
+                _live['successful_at'] = time.time()
+            except Exception as e:
+                _live['error'] = f'Across API unavailable: {type(e).__name__}; retained rows are stale'
+            _live['at'] = time.time()
     rows = _live["rows"]
-    counts = {v: sum(r["verdict"] == v for r in rows) for v in ("consistent", "pending", "overdue", "unknown", "violation")}
-    return {"source": "Across (app.across.to/api/deposits)", "polled_at": int(_live["at"]), "error": _live["error"],
+    counts = {v: sum(r['verdict'] == v for r in rows) for v in ('reported_filled', 'pending', 'overdue', 'unknown', 'refunded')}
+    return {"source": "Across (app.across.to/api/deposits)", "polled_at": int(_live['successful_at']), "attempted_at": int(_live['at']), "error": _live["error"],
             "counts": counts, "rows": rows}

@@ -7,7 +7,7 @@ import { API } from '../data';
 export const TABS: { to: string; label: string; glyph: JSX.Element; hint: string; short?: string }[] = [
   { to: 'live', label: 'Live console', short: 'Live', glyph: Glyph.monitor, hint: 'Replay a real hack or watch a real bridge: graph, alerts, reasons' },
   { to: 'map', label: '3D map', short: 'Map', glyph: Glyph.graph, hint: 'The bridge as a 3D map: deposits on one side, payouts on the other' },
-  { to: 'budget', label: 'Idea 1 · Accusation Budget', short: 'Budget', glyph: Glyph.seal, hint: 'Fewer false alarms, guaranteed' },
+  { to: 'budget', label: 'Idea 1 · Accusation Budget', short: 'Budget', glyph: Glyph.seal, hint: 'False alarms measured on replay' },
   { to: 'contagion', label: 'Idea 2 · Contagion Radar', short: 'Spread', glyph: Glyph.incident, hint: 'Is the attack spreading by itself?' },
   { to: 'signers', label: 'Idea 3 · Signer DNA', short: 'Signers', glyph: Glyph.key, hint: 'Who really signed, recovered from the chain' },
   { to: 'pairing', label: 'Idea 4 · Ledger Pairing', short: 'Pairing', glyph: Glyph.gate, hint: 'Every coin out needs a coin in' },
@@ -35,7 +35,7 @@ export function ConsoleLayout() {
           </div>
           <Tag kind={API ? 'live' : undefined}>{API ? 'live server' : 'built-in replay files'}</Tag>
         </header>
-        <div className="console-page"><Suspense fallback={<div className="page-loading label">Loading…</div>}><Outlet /></Suspense></div>
+        <main className="console-page"><Suspense fallback={<div className="page-loading label">Loading…</div>}><Outlet /></Suspense></main>
       </div>
     </div>
   );

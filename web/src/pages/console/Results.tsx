@@ -61,8 +61,8 @@ export default function Results() {
         <section className="plate"><header className="plate-head"><span className="label">What kind of attack · {NAMES[feed]}</span></header>
           <div className="plate-body">
             <ul className="kinds">{Object.entries(f.types_on_attack).map(([k, n]) => <li key={k}><span>{TYPE_SHORT[k] ?? k}</span><b className="mono">{n}</b></li>)}</ul>
-            <p className="note">{feed === 'nomad' ? 'Nomad copycats re-used real message IDs, so many look like “old message used again” until the cluster forms.' : feed === 'ronin' ? 'Ronin is typed as stolen validator keys because real signatures were recovered for it.' : 'Every practice scenario is typed correctly; the two safe controls (a big honest payout and a busy honest burst) raise nothing.'}</p>
-            <p className="note">Statistics alone, with the deposit rule switched off: <b>{f.stat_alarms_on_attack}/{f.attack_releases}</b> attack payouts alarm{f.stat_first_alarm_after_s != null ? `, the first right at the start` : '. This attack is caught by the deposit rule only.'}</p>
+            <p className="note">{feed === 'nomad' ? 'Nomad copycats re-used real message IDs, so many look like “old message used again” until the cluster forms.' : feed === 'ronin' ? 'Ronin is typed as stolen validator keys because real signatures were recovered for it.' : 'The table reports the observed types on practice attacks; safe controls are evaluated separately.'}</p>
+            <p className="note">Statistics alone, with the deposit rule switched off: <b>{f.stat_alarms_on_attack}/{f.attack_releases}</b> attack payouts alarm{f.stat_first_alarm_after_s != null ? `, the first ${duration(f.stat_first_alarm_after_s)} after the first attack payout` : '. This attack is caught by the deposit rule only.'}</p>
           </div></section>
       </div>
 
@@ -97,7 +97,7 @@ function Models({ m, f }: { m: Metrics; f: FeedMetrics }) {
       <div><h5>2 · Signer and ID model</h5><p>Learns what normal Ronin withdrawals look like: which validators sign, how big, and which ID.</p>
         <p>Scores the two real attack withdrawals at <b>{m.feeds.ronin.auth_attack_p?.join(' and ')}</b>; a normal one scores about <b>{m.feeds.ronin.auth_heldout_median_p}</b> (smaller = stranger).</p></div>
       <div><h5>3 · Attack-type model</h5><p>Names the likely kind of attack and shows the top reasons, using exact per-feature contributions.</p>
-        <p>Trained on practice attacks over real normal traffic, then tested on the real incidents. {f.attack_flagged_exploit > 0 && 'Its job is the label and the reasons, never the accusation.'}</p></div>
+        <p>Trained on practice attacks over real normal traffic, with separate training, calibration and test rows. Real incident outputs are reported individually. {f.attack_flagged_exploit > 0 && 'Its job is the label and the reasons, never the accusation.'}</p></div>
     </div>
   );
 }

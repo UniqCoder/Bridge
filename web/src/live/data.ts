@@ -11,13 +11,17 @@ export type Reason = { feature: string; value: number; push: number };
 export type Ev = {
   id: string; ts: number; kind: 'deposit' | 'withdrawal'; tx: string; symbol: string; amount: string; decimals: number;
   usd: number | null; msg_id: string; recipient: string; truth: 'normal' | 'attack' | 'control'; scenario: string | null;
-  status?: 'consistent' | 'violation'; rule?: string | null; matched?: string | null; delay?: number | null;
+  status?: 'consistent' | 'violation' | 'unknown' | 'pending'; rule?: string | null; matched?: string | null; delay?: number | null;
   window?: [number, number]; signals?: Signals; p?: Record<string, number | null>; p_comb?: number | null;
   e_comb?: number | null; ecusum?: number | null; alarm?: boolean; risk?: number; level?: 'exploit' | 'suspicious' | 'none';
   type?: string | null; type_text?: string | null; type_prob?: number | null; precedent?: string | null; reasons?: Reason[] | null;
   deposit?: { tx: string; ts: number; amount: string; recipient: string; msg_id: string } | null;
   search?: { deposits_checked: number; since: number | null; same_amount_and_recipient: number; same_amount_other_recipient: number; same_recipient_other_amount: number; same_message_id: number };
+  risk_breakdown?: { base: number; exposure: number; campaign: number; behavior: number; total: number };
+  evidence?: { bundle: EvidenceBundle; sha256: string };
 };
+export type EvidenceFact = { event_id: string; route: string; token: string; msg_id: string; amount: string; recipient: string; ts: number; matched?: string; status?: string };
+export type EvidenceBundle = { rule_version: string; release: EvidenceFact; authorizations: EvidenceFact[]; previous_releases: EvidenceFact[]; coverage: { source_complete: boolean; mode: string } };
 export type Tick = { t: number; backed_usd: number; unbacked_usd: number; midas: number; cluster_max: number; hawkes_n: number; ecusum: number; releases: number };
 export type ScoreRow = { method: string; attack_flagged: string; first_alert_after_s: number | null; usd_before_first_alert: number | null; false_alerts: number; false_alerts_per_day: number };
 export type FeedMetrics = {
@@ -53,8 +57,8 @@ export type FeedId = (typeof FEEDS)[number]['id'];
 async function getJSON<T>(path: string, fallback?: string): Promise<T> {
   if (API) {
     try {
-      const r = await fetch(`${API}${path}`);
-      if (r.ok) return r.json();
+      const r = await fetch(`${API}${path}`, { signal: AbortSignal.timeout(6000) });
+      if (r.ok) return await r.json();
     } catch { /* fall through to the static copy */ }
   }
   if (!fallback) throw new Error(`no API for ${path}`);
@@ -84,14 +88,17 @@ export function useClock(window: [number, number] | undefined, speed: number, pl
   useEffect(() => {
     if (!playing || !window) { last.current = null; return; }
     let raf = 0;
-    const step = (now: number) => {
+    const advance = (now: number) => {
       if (last.current != null) setT((x) => Math.min(window[1], x + ((now - last.current!) / 1000) * speed));
       last.current = now;
+    };
+    const step = (now: number) => {
+      advance(now);
       raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
     // Hidden tabs pause rAF; a coarse interval keeps the clock honest there.
-    const iv = setInterval(() => { if (document.visibilityState === 'hidden') step(performance.now()); }, 500);
+    const iv = setInterval(() => { if (document.visibilityState === 'hidden') advance(performance.now()); }, 500);
     return () => { cancelAnimationFrame(raf); clearInterval(iv); last.current = null; };
   }, [playing, speed, window?.[0], window?.[1]]);
   return [t, setT] as const;
@@ -106,7 +113,7 @@ export function useView(data: Replay | null, t: number) {
     const seen = data.events.slice(0, n);
     const w = seen.filter((e) => e.kind === 'withdrawal');
     const alerts = w.filter((e) => e.level && e.level !== 'none');
-    const tick = data.ticks.filter((k) => k.t <= t);
+    const tick = data.ticks.filter((k) => k.t + 60 <= t);
     return {
       seen, n, withdrawals: w, alerts,
       exploits: alerts.filter((e) => e.level === 'exploit'),
@@ -117,7 +124,7 @@ export function useView(data: Replay | null, t: number) {
   }, [data, Math.floor(t)]);
 }
 
-export type LiveRow = { id: string; deposit_tx: string | null; fill_tx: string | null; src: number; dst: number; symbol: string | null; status: string; deposit_ts: number | null; fill_ts: number | null; in_usd: number | null; out_usd: number | null; verdict: 'consistent' | 'pending' | 'overdue' | 'unknown' | 'violation'; reason: string | null; ml: string; delay_s?: number };
+export type LiveRow = { id: string; deposit_tx: string | null; fill_tx: string | null; src: number; dst: number; symbol: string | null; status: string; deposit_ts: number | null; fill_ts: number | null; in_usd: number | null; out_usd: number | null; verdict: 'reported_filled' | 'refunded' | 'pending' | 'overdue' | 'unknown'; reason: string | null; ml: string; delay_s?: number };
 export type Live = { source: string; polled_at: number; error: string | null; counts: Record<string, number>; rows: LiveRow[] };
 
 export function useLive(active: boolean) {
@@ -137,18 +144,19 @@ export function useLive(active: boolean) {
 
 export const TYPE_SHORT: Record<string, string> = {
   unbacked_release: 'Money released with no deposit', message_replay: 'Old message used again', copycat_swarm: 'Copycat swarm',
-  key_compromise: 'Stolen validator keys', amount_mismatch: 'Wrong amount paid out', recipient_mismatch: 'Paid to the wrong person',
+  key_compromise: 'Suspected validator key compromise', amount_mismatch: 'Wrong amount paid out', recipient_mismatch: 'Paid to the wrong person',
   benign_whale: 'Large but backed', benign_burst: 'Busy but backed',
 };
 export const FEATURE_TEXT: Record<string, string> = {
   unbacked: 'no deposit backs this release', amount_mismatch: 'amount differs from its deposit',
   recipient_mismatch: 'paid to someone other than the depositor’s recipient', id_reused: 'the same message ID was used before',
-  id_jump_log: 'withdrawal ID is far beyond any ever issued', cluster_log: 'one of many near-identical releases',
-  hawkes_n: 'each release is triggering more releases', midas: 'the same message is repeating fast',
+  id_jump_log: 'withdrawal ID is far beyond the observed source IDs', cluster_log: 'one of many near-identical releases',
+  hawkes_n: 'cluster timing fits a spreading pattern', midas: 'the same message is repeating fast',
   log_usd: 'very large amount', value_vs_route: 'large compared with a normal day on this route', signed: 'carried real validator signatures',
 };
 export const RULE_TEXT: Record<string, string> = {
-  missing_source_deposit: 'No matching deposit was ever made',
+  missing_source_deposit: 'No matching authorization in the supplied dataset history',
+  message_replayed: 'This deposit authorization was already used',
   amount_mismatch: 'The amount paid out differs from the deposit',
   recipient_mismatch: 'Paid to someone other than the deposit’s recipient',
   outside_usual_delay: 'Backed, but it arrived later than normal',

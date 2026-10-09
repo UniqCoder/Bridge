@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { SIGNAL_NAME, human, useMetrics, useReplayData, type Ev, type Metrics, type Replay } from '../../live/data';
+import { RULE_TEXT, SIGNAL_NAME, human, txUrl, useMetrics, useReplayData, type Ev, type Metrics, type Replay } from '../../live/data';
 import { usd, utc } from '../../lib/format';
 import '../../live/pages.css';
 
@@ -9,23 +9,23 @@ const usdShort = (v: number) => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1
 const Wait = ({ what }: { what: string }) => <div className="demo-wait label">Loading {what}…</div>;
 
 const IDEAS = [
-  { to: 'budget', name: 'Accusation Budget', tag: 'Fewer false alarms, guaranteed', answers: 'a risk-scored alert',
+  { to: 'budget', name: 'Accusation Budget', tag: 'False alarms, measured', answers: 'a risk-scored alert',
     problem: 'Most tools shout whenever a number crosses a line, and nobody knows how often they are wrong. Teams stop listening, then miss the real attack.',
     how: 'Every warning sign is compared with what normal traffic looked like recently, and the signs are combined into one evidence score. An alarm needs enough evidence, and “exploit” needs the deposit rule to break as well, so a scary-looking number alone can never accuse anyone.' },
   { to: 'contagion', name: 'Contagion Radar', tag: 'Is the attack spreading?', answers: 'volume spikes',
     problem: 'Nomad was not one big theft. One person found the bug, then hundreds of copycats pasted the same transaction with their own address. Size alerts see a lot of small payments, not a swarm.',
-    how: 'We fingerprint every release with the address hidden, so copy-paste releases land in one cluster. Then we measure whether each release is causing more releases. That number (n̂, the attack’s reproduction number) near or above 1 means it will keep going on its own: hold the route.' },
+    how: 'We fingerprint releases with the address hidden and group similar transactions. A fitted spread number describes the cluster timing. It helps investigate a swarm, but cannot prove causation or authorize a hold by itself.' },
   { to: 'signers', name: 'Signer DNA', tag: 'Who signed, from the chain itself', answers: 'unusual signer behaviour',
     problem: 'Bridges release money when enough validators sign. Most demos make signers up. Real signatures sit inside transaction data, where almost nobody looks.',
     how: 'We recover the signers of each Ronin withdrawal straight from the signatures (public math, no trust needed) and learn each validator’s normal habits. Then we report honestly what that showed.' },
   { to: 'pairing', name: 'Ledger Pairing', tag: 'Every coin out needs a coin in', answers: 'mismatched deposit/withdrawal pairs',
     problem: 'Many tools match a payout to a deposit by its message ID. Nomad’s copycats re-used real IDs, so those tools saw a match and stayed quiet.',
-    how: 'We match by amount, recipient and timing, one deposit to one payout, and each deposit can only be used once. A payout with no deposit behind it is unbacked. The gap between money in and money out is tracked live, and you can click to see who caused it.' },
+    how: 'We bind each payout to its route, token and message, then check the exact amount, recipient and prior use. Each deposit can back one payout. Learned timing adds context, but never rejects an otherwise valid authorization.' },
 ];
 
 const TAKE = [
   'A judge can ask "how often are you wrong?" and get a number, not a promise: 0 false alarms in 1,826 unseen Nomad payouts. And the word EXPLOIT is only ever said when the deposit rule breaks.',
-  'This is what separates a swarm of copycats from a pile of small payments. A spread number near 1 means the attack feeds itself, so the right move is to hold the route right away.',
+  'Clusters make related payouts easier to investigate. Estimated spread is advice; only a proven backing-rule violation can support containment.',
   'We did not invent signers. We recovered them from real signatures, then reported honestly that the Ronin attackers looked ordinary. The withdrawal ID is what gave them away.',
   'Matching by message ID caught 41 of 382 Nomad attack payouts. Matching by amount, person and timing caught all 382, because every deposit can be used only once.',
 ];
@@ -116,7 +116,7 @@ function BudgetDemo({ m }: { m: Metrics | null }) {
         </div>
         <div className={`verdict verdict--${e.level}`}>
           <b>{e.level === 'exploit' ? 'EXPLOIT' : e.level === 'suspicious' ? 'SUSPICIOUS (advice only)' : 'NO ALERT'}</b>
-          <span>{e.level === 'exploit' ? `The statistics and the deposit rule agree. Risk ${e.risk}/100.` : e.level === 'suspicious' ? 'Unusual, but the deposit rule held, so we do not accuse. Risk is capped below 70.' : e.signals && (e.p?.value_vs_route ?? 1) < 0.05 ? 'This payout is large, but it is fully backed. Big does not mean guilty, so nobody is accused.' : 'Looks like everyday traffic.'}</span>
+          <span>{e.level === 'exploit' ? `The deposit rule broke: ${RULE_TEXT[e.rule ?? ''] ?? e.rule}. Priority ${e.risk}/100; statistical agreement is not required.` : e.level === 'suspicious' ? 'Unusual, but the deposit rule held, so we do not accuse. Priority is capped below 70.' : e.signals && (e.p?.value_vs_route ?? 1) < 0.05 ? 'This payout is large, but it is fully backed. Big does not mean guilty, so nobody is accused.' : 'Looks like everyday traffic.'}</span>
         </div>
         <div className="demo-meta">{e.symbol} {human(e.amount, e.decimals)} · {e.usd != null ? usd(e.usd) : 'unpriced'} · {utc(e.ts).slice(0, 19)}{e.scenario ? ' · practice attack' : ''}</div>
       </>}
@@ -125,7 +125,7 @@ function BudgetDemo({ m }: { m: Metrics | null }) {
         <ul>
           {(['nomad', 'ronin', 'simulated'] as const).map((f) => <li key={f}><b>{m.feeds[f].heldout_false_alarms}</b> false alarms in <b>{NUM.format(m.feeds[f].heldout_normal)}</b> normal releases ({FEED_LABEL[f]})</li>)}
         </ul>
-        <span className="note">Our promise: on average no more than one false alarm per 1,000 normal releases. Wrongly labelled “exploit” in total: 0.</span>
+        <span className="note">These are observed replay counts. Rolling calibration does not establish a guaranteed future false-alarm rate. Only exact rule violations produce exploit verdicts.</span>
       </div>}
     </div>
   );
@@ -160,7 +160,7 @@ function ContagionDemo({ m }: { m: Metrics | null }) {
   const W = 640, H = 200, X = (j: number) => (j / (T.length - 1)) * W;
   const area = `M0 ${H} ` + T.map((x, j) => `L${X(j).toFixed(1)} ${(H - (x.cluster_max / maxC) * (H - 16)).toFixed(1)}`).join(' ') + ` L${W} ${H} Z`;
   const line = T.map((x, j) => `${j ? 'L' : 'M'}${X(j).toFixed(1)} ${(H - (Math.min(x.hawkes_n, 3.2) / 3.2) * (H - 16)).toFixed(1)}`).join(' ');
-  const state = k.hawkes_n >= 0.8 ? ['Spreading by itself', 'Hold the route now.', 'bad'] : k.hawkes_n >= 0.3 ? ['Building', 'Copycats are starting to trigger copycats.', 'warn'] : ['Quiet', 'No copy-paste cluster is feeding itself.', 'ok'];
+  const state = k.hawkes_n >= 1 ? ['Strong fitted spread', 'Investigate the cluster and its backing evidence.', 'warn'] : k.hawkes_n >= 0.3 ? ['Cluster building', 'Timing fits a growing cluster; it does not prove causation.', 'warn'] : ['Quiet', 'Little fitted spread in the current cluster.', 'ok'];
   const crossIdx = T.findIndex((x) => x.hawkes_n >= 0.5);
   const sc = m?.feeds[feed === 'nomad' ? 'nomad' : 'simulated'].scorecard.find((r) => r.method.startsWith('B2'));
   return (
@@ -191,37 +191,71 @@ function ContagionDemo({ m }: { m: Metrics | null }) {
 
 /* ───────────────────────── 3 · Signer DNA ───────────────────────── */
 function SignerDemo({ m }: { m: Metrics | null }) {
-  const [tab, setTab] = useState<'who' | 'id'>('who');
+  const [tab, setTab] = useState<'real' | 'who' | 'id'>('real');
+  const { data: ronin } = useReplayData('ronin');
   if (!m) return <div className="demo"><Wait what="signer data" /></div>;
   const s = m.signer_dna, r = m.feeds.ronin;
   const gap = s.attack_ids[0] - s.normal_id_max;
   const lo = 1_000_000, hi = 2_050_000, pos = (v: number) => `${((v - lo) / (hi - lo)) * 100}%`;
   return (
     <div className="demo">
-      <div className="demo-bar"><Seg value={tab} onChange={(v) => setTab(v as 'who' | 'id')} items={[['who', '1 · Who signed?'], ['id', '2 · Which withdrawal ID?']]} /></div>
-      {tab === 'who' ? <>
+      <div className="demo-bar"><Seg value={tab} onChange={(v) => setTab(v as 'real' | 'who' | 'id')} items={[['real', '1 · The real signers'], ['who', '2 · How often each signs'], ['id', '3 · Which withdrawal ID?']]} /></div>
+      {tab === 'real' ? <RealSigners m={m} ronin={ronin} /> : tab === 'who' ? <>
         <p className="lede">Ronin has 9 validators and needs 5 to approve a withdrawal. We recovered the signers of <b>{NUM.format(s.normal_sampled)}</b> normal withdrawals and of the two attack withdrawals. Amber = signed the attack.</p>
         <div className="vals">{s.validators.map((v) => (
-          <div key={v.addr} className={v.signed_attack ? 'val val--atk' : 'val'}><div className="val-bar"><i style={{ height: `${v.participation * 100}%` }} /></div><b>{Math.round(v.participation * 100)}%</b><span className="mono">{v.addr.slice(2, 6)}</span></div>))}</div>
+          <div key={v.addr} className={v.signed_attack ? 'val val--atk' : 'val'}><div className="val-bar"><i style={{ height: `${v.participation * 100}%` }} /></div><b>{Math.round(v.participation * 100)}%</b><span className="mono" title={v.addr}>{v.addr.slice(0, 6)}…{v.addr.slice(-4)}</span></div>))}</div>
         <p className="note">Share of normal withdrawals each validator signed. Four of the five attack signers sign almost everything.</p>
         <div className="finding"><b>Honest finding.</b> The exact attack group also signed <b>{NUM.format(s.attack_quorum_seen_in_normal)}</b> normal withdrawals ({(s.attack_quorum_share * 100).toFixed(1)}%). So <b>who signed was not unusual</b>. The signatures were real and the signers ordinary, which is exactly why checks that trust signatures stayed quiet.</div>
       </> : <>
         <p className="lede">Every withdrawal has an ID counted up by Ronin's own chain. Normal ones were between <b>{NUM.format(s.normal_id_min)}</b> and <b>{NUM.format(s.normal_id_max)}</b>.</p>
         <div className="idcards">
-          <div><span>Last ID Ronin ever issued</span><b>{NUM.format(s.normal_id_max)}</b></div>
-          <div className="idcards--gap"><span>IDs that were never issued</span><b>{NUM.format(gap)}</b></div>
+          <div><span>Highest ID in the normal sample</span><b>{NUM.format(s.normal_id_max)}</b></div>
+          <div className="idcards--gap"><span>Gap above the sample</span><b>{NUM.format(gap)}</b></div>
           <div className="idcards--bad"><span>ID the attacker used</span><b>{NUM.format(s.attack_ids[0])}</b></div>
         </div>
         <div className="idruler" role="img" aria-label="Ruler of withdrawal IDs: normal ones, a huge empty gap, then the attack IDs">
           <div className="idruler-normal" style={{ width: pos(s.normal_id_max) }}><span>real IDs</span></div>
-          <div className="idruler-gap"><span>{NUM.format(gap)} numbers Ronin never created</span></div>
+          <div className="idruler-gap"><span>{NUM.format(gap)} numbers above the sample</span></div>
           <div className="idruler-atk" style={{ left: pos(s.attack_ids[0]) }}><span>attack</span></div>
           <span className="idtick" style={{ left: '0%' }}>{NUM.format(lo)}</span><span className="idtick" style={{ left: '100%' }}>{NUM.format(hi)}</span>
         </div>
         <p className="lede">Think of withdrawal IDs like cheque numbers. Real ones were counted up one by one, so a new one should be the next number. The attacker's was nearly a million numbers ahead.</p>
-        <div className="finding"><b>The real signal.</b> The attack's IDs were about <b>{NUM.format(gap)}</b> past the last ID ever issued, numbers Ronin never created. Our signer model scored the two attack withdrawals at <b>p = {r.auth_attack_p?.join(' and ')}</b>; a normal withdrawal scores around <b>{r.auth_heldout_median_p}</b> (smaller = stranger).</div>
+        <div className="finding"><b>The warning signal.</b> The attack IDs were <b>{NUM.format(gap)}</b> above the sampled normal maximum. This is unusual, but the gap alone does not prove those IDs were never issued. Model p-values: <b>{r.auth_attack_p?.join(' and ')}</b>; normal median <b>{r.auth_heldout_median_p}</b>. The backing check makes the exploit decision.</div>
       </>}
     </div>
+  );
+}
+
+/** The signers of the two real Ronin attack withdrawals, recovered from the signatures inside each transaction. */
+function RealSigners({ m, ronin }: { m: Metrics; ronin: Replay | null }) {
+  if (!ronin) return <Wait what="the Ronin attack" />;
+  const attacks = ronin.events.filter((e) => e.truth === 'attack' && e.kind === 'withdrawal');
+  const part = new Map(m.signer_dna.validators.map((v) => [v.addr, v.participation]));
+  return (
+    <>
+      <p className="lede">Ronin is run by <b>9 validators</b>, and <b>5</b> must sign before a withdrawal is paid. The signatures sit inside the Ethereum transaction. We recovered the address behind each one with public math (<span className="mono">ecrecover</span>), so you can check any of these on a block explorer. These are the <b>real</b> signers of the two stolen withdrawals.</p>
+      {attacks.map((e, i) => {
+        const url = txUrl('ronin', 'withdrawal', e.tx);
+        return (
+          <div key={e.id} className="sigcard">
+            <header>
+              <b>Attack withdrawal {i + 1}</b>
+              <span>{utc(e.ts).slice(0, 19)} UTC · {e.symbol} {NUM.format(Number(human(e.amount, e.decimals, 0).replace(/,/g, '')))} · {usd(e.usd ?? 0)}</span>
+              {url && <a href={url} target="_blank" rel="noreferrer" className="mono">{e.tx.slice(0, 12)}…{e.tx.slice(-6)} ↗</a>}
+            </header>
+            <ol className="signers">
+              {(e.signals?.signers ?? []).map((a, k) => (
+                <li key={a}>
+                  <span className="signers-n">{k + 1}</span>
+                  <a className="mono brk" href={`https://etherscan.io/address/${a}`} target="_blank" rel="noreferrer">{a} ↗</a>
+                  <span className="dim">signs {Math.round((part.get(a) ?? 0) * 100)}% of normal withdrawals</span>
+                </li>))}
+            </ol>
+          </div>);
+      })}
+      <div className="finding"><b>What this shows.</b> Five genuine validators signed both withdrawals. Four of them sign almost everything, so the signers alone look normal. That is the point: a bridge that trusts signatures sees nothing wrong. See tab 3 for the number that gave the attack away.</div>
+      <p className="note">Recovered from calldata of the {ronin.label} replay. Only Ronin exposes signatures this way; for Nomad the signer model reports "not applicable" instead of guessing.</p>
+    </>
   );
 }
 
@@ -254,7 +288,7 @@ function PairingDemo({ m }: { m: Metrics | null }) {
         <tbody>{rows.map((e) => (
           <tr key={e.id}><td className="mono">{utc(e.ts).slice(11, 19)}</td><td className="mono">{e.symbol} {human(e.amount, e.decimals, 2)}</td><td className="mono">{e.msg_id}</td>
             <td>{(e.search?.same_message_id ?? 0) > 0 ? <span className="warn">“Matched” (ID was used before)</span> : <span className="bad">No deposit with this ID</span>}</td>
-            <td className="bad">No deposit of this amount to this person ({e.search ? NUM.format(e.search.deposits_checked) : '—'} checked)</td></tr>))}</tbody>
+            <td className="bad">{RULE_TEXT[e.rule ?? ''] ?? e.rule} ({e.search ? NUM.format(e.search.deposits_checked) : '—'} checked)</td></tr>))}</tbody>
       </table></div>
       <p className="note">Want to check one yourself, against the full deposit history? <Link to="/console/evidence?feed=nomad">Open it on the Check it yourself page →</Link></p>
     </div>
