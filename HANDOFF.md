@@ -7,7 +7,7 @@ Read this first. Then `NEW.md` (the locked product spec, with a PDF beside it in
 | Problem statement | CSB-01 · Real-time detection of cross-chain bridge exploits (Chainalysis): dashboard over a live or replayed feed; flag volume spikes, unusual signer behaviour, mismatched deposit/withdrawal pairs; risk-scored alert with suspected exploit type |
 | Repo | https://github.com/UniqCoder/Bridge (private), branch `main`, git root `D:\fusionhack`, local identity `UniqCoder` |
 | Brand line | "Signatures can be stolen. Conservation can't." |
-| Status (9 Oct 2026) | Backend, models, API, Docker image and the whole frontend are built and verified locally. **Not deployed**: Render and Vercel need the user's accounts (see §6) |
+| Status (10 Oct 2026) | Backend, models, API, Docker image and the whole frontend are built and verified locally. **Not deployed**: Render and Vercel need the user's accounts (see §6) |
 
 ## 1. What exists
 
@@ -61,7 +61,7 @@ Old pages (Monitor, Gauntlet, Incidents, Theatre, Replay, Graph, Witness, Lab, E
 | ML2 signer/ID anomaly: Isolation Forest + signer-group likelihood | `ml.AuthModel` | 4,200 real Ronin withdrawals with recovered signers; Ronin feeds only, Nomad abstains |
 | ML3 attack type: LightGBM multiclass + isotonic + exact TreeSHAP (`pred_contrib`, no shap library) | `ml.ExploitTyper` | synthetic scenarios over real normal rows; rule-constrained (no benign label after a violation; "key compromise" only with recovered signatures) |
 
-**Measured (from `artifacts/metrics.json`, asserted by selfcheck)**: Nomad 382/382 attack payouts labelled exploit, 0 of 4,482 normal; Ronin 2/2, 0 of 22,830; practice attacks 30/30, controls clean. Held-out statistical false alarms: 0/1,826 (Nomad), 4/6,316 (Ronin), 3/2,126 (practice). Statistics alone catch Nomad 179/382 from the first payout but Ronin 0/2 (only the rule catches it). Baselines on Nomad: whale threshold 43/382 (11 false alerts), volume z-score 357/382 (41 false alerts), message-id join 41/382. Counterfactual: holding before the first payout keeps $159.6M (100%); holding 1 minute after the first alert keeps 89.9%.
+**Measured (from `artifacts/metrics.json`, asserted by selfcheck 16/16, 10 Oct 2026)**: Nomad 382/382 attack payouts labelled exploit, 0 normal; Ronin 2/2, 0 normal; practice attacks 38/38 (incl. an 8-payout slow drain), controls clean. Held-out statistical false alarms: 0/1,826 (Nomad), 0/6,316 (Ronin), 2/2,126 (practice). Statistics alone (rule off): Nomad 187/382 from the first payout, Ronin 1/2 (the second, 115 s in), practice 16/38. Baselines on Nomad: whale threshold 43/382 (11 false alerts), volume z-score 321/382 (52 false alerts), message-id join 41/382. Counterfactual: holding before the first payout keeps $159.6M (100%); 1 minute after the first alert keeps 89.9%. Rolling-conformal window is 25,000 backed payouts (sweep of 2k/10k/25k kept in metrics; `scripts/conformal_window_sweep.py`). Tested and rejected (worse on held-out data): learned Poisson volume baseline; recipient-novelty signal (duplicates the rule).
 
 **Honest findings that must stay in every claim**:
 - Ronin attack signers were an ordinary group (6.6% of normal withdrawals): *who* signed is NOT the signal. The signal is the withdrawal ID (2,000,000 vs max normal 1,064,238).
@@ -137,6 +137,15 @@ Not done: no Render CLI or API key on this machine and the Claude-in-Chrome exte
    - Another session holds port 5173 and the in-app browser pane is small/hidden: verify with `scripts/shots.ps1` (headless Edge, own user-data-dir) rather than browser-pane screenshots.
    - The Write tool refuses to overwrite a file edited since it was read: re-read first.
 10. The pipeline reads `bridgewitness/data/signers.parquet`; if missing, `python -m bridgewitness.signers` rebuilds it (about 12 minutes, polite rate limit, checkpoints as it goes).
+
+## 7b. UI v4 notes (10 Oct 2026)
+
+- Landing (`pages/site/Landing.tsx`, `app/landing.css`): full-bleed WebGL hero (`Map3D` with `bare`, lazy-loaded), floating nav island with mobile menu, proof tickers, Ronin vs Nomad, live bento of the four ideas (real metrics), scroll-drawn steps, console screenshot (`public/img/console.webp`).
+- `live/Map3D.tsx`: block vault, ledger chains, packet tunnels, breach alarm, bloom + chromatic aberration; `bare` hides labels/HUD for the hero.
+- Icons: `@phosphor-icons/react` (light weight). Fonts: Geist + Geist Mono (self-hosted via @fontsource).
+- Design skills from Leonxlnx/taste-skill live in `.claude/skills` (design-taste-frontend, redesign-existing-projects, high-end-visual-design).
+- Screenshots: `scripts/shot.ps1 <out.png> <url> [w,h]` (headless Edge with `--use-angle=d3d11`; swiftshader renders the 3D canvas black).
+- PDF guide: `python docs/build_guide_pdf.py` (needs `docs/shots/*.png` from `scripts/shots.ps1`).
 
 ## 8. Kickoff prompt for the next session
 
