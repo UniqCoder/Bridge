@@ -18,12 +18,13 @@ const IDEAS = [
 function HeroGraph() {
   const { data } = useReplayData('nomad');
   const w = data?.window;
-  const [t, setT] = useClock(w, w ? (w[1] - w[0]) / 28 : 1, true);
-  const v = useView(data, t);
+  const [t, setT] = useClock(w, w ? (w[1] - w[0]) / 40 : 1, true);
+  const start = data ? data.events[40].ts : 0;
+  const v = useView(data, Math.max(t, start));
   useEffect(() => { if (w && t >= w[1]) setT(w[0]); }, [t, w]);
   return (
     <div className="hero-viz plate">
-      <header className="plate-head"><span className="label">Nomad hack · 3D map, drag to orbit</span><Link to="/console/live?feed=nomad" className="cap-link">Open →</Link></header>
+      <header className="plate-head"><span className="label">Nomad hack · 3D map, drag to orbit</span><Link to="/console/map" className="cap-link">Open the full map →</Link></header>
       {data && v ? <Map3D data={data} n={v.n} selected={null} onSelect={() => {}} spin /> : <div className="demo-wait label">Loading…</div>}
     </div>
   );

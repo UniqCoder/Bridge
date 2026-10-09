@@ -95,3 +95,5 @@
 .plate-head .seg button { background: none; border: 0; color: var(--text-2); padding: 4px 10px; font: 12px var(--sans); cursor: pointer; }
 .plate-head .seg button + button { border-left: 1px solid var(--line-2); }
 .plate-head .seg button[aria-selected='true'] { background: var(--text); color: var(--bg); font-weight: 600; }
+.map-stage { display: grid; grid-template-rows: auto 1fr; min-height: calc(100vh - 230px); }
+.map-stage .lg-canvas { min-height: 560px; }

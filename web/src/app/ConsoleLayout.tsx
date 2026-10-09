@@ -6,6 +6,7 @@ import { API } from '../data';
 
 export const TABS: { to: string; label: string; glyph: JSX.Element; hint: string; short?: string }[] = [
   { to: 'live', label: 'Live console', short: 'Live', glyph: Glyph.monitor, hint: 'Replay a real hack or watch a real bridge: graph, alerts, reasons' },
+  { to: 'map', label: '3D map', short: 'Map', glyph: Glyph.graph, hint: 'The bridge as a 3D map: deposits on one side, payouts on the other' },
   { to: 'usps', label: 'Our four ideas', short: 'Ideas', glyph: Glyph.seal, hint: 'Try each idea on real data' },
   { to: 'evidence', label: 'Check it yourself', short: 'Check', glyph: Glyph.evidence, hint: 'Pick a payout and see the proof, or try to cheat it' },
   { to: 'results', label: 'Results', glyph: Glyph.eval, hint: 'What we caught, what we got wrong, measured' },

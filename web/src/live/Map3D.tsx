@@ -76,7 +76,7 @@ function Scene({ data, n, selected, onSelect, spin }: Props) {
   return (
     <>
       <color attach="background" args={['#08090b']} />
-      <fog attach="fog" args={['#08090b', 20, 46]} />
+      <fog attach="fog" args={['#08090b', 26, 60]} />
       {([-1, 1] as const).map((s) => (
         <group key={s} position={[s * X, 5, 0]}>
           <lineSegments geometry={frame}><lineBasicMaterial color="#30343c" /></lineSegments>
@@ -91,7 +91,7 @@ function Scene({ data, n, selected, onSelect, spin }: Props) {
       <instancedMesh ref={mesh} args={[undefined, undefined, data.events.length]} onClick={pick}>
         <icosahedronGeometry args={[1, 1]} /><meshBasicMaterial toneMapped={false} />
       </instancedMesh>
-      <OrbitControls target={[0, 5, 0]} enableDamping dampingFactor={0.08} autoRotate={spin} autoRotateSpeed={0.5} minDistance={8} maxDistance={40} enablePan={false} />
+      <OrbitControls target={[0, 5, 0]} enableDamping dampingFactor={0.08} autoRotate={spin} autoRotateSpeed={0.5} minDistance={10} maxDistance={50} enablePan={false} />
     </>
   );
 }
@@ -101,7 +101,7 @@ type Props = { data: Replay; n: number; selected: string | null; onSelect: (id: 
 export function Map3D(p: Props) {
   return (
     <div className="lg-canvas" role="img" aria-label={`3D map of ${p.data.label}: deposits on the left plane, payouts on the right; copper arcs are payouts with no deposit.`}>
-      <Canvas dpr={[1, 1.75]} camera={{ fov: 40, position: [10, 8, 18] }}><Scene {...p} /></Canvas>
+      <Canvas dpr={[1, 1.75]} camera={{ fov: 40, position: [16, 9, 28] }}><Scene {...p} /></Canvas>
     </div>
   );
 }

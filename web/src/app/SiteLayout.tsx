@@ -38,6 +38,7 @@ export function SiteLayout({ notFound }: { notFound?: boolean }) {
           <Link to="/" aria-label="BridgeWitness home"><Logo /></Link>
           <nav className="site-links" aria-label="Primary">
             <NavLink to="/console/live">Live console</NavLink>
+            <NavLink to="/console/map">3D map</NavLink>
             <NavLink to="/console/usps">Our four ideas</NavLink>
             <NavLink to="/console/evidence">Check it yourself</NavLink>
             <NavLink to="/console/results">Results</NavLink>

@@ -1,5 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { SIGNAL_NAME, human, useMetrics, useReplayData, type Ev, type Metrics, type Replay } from '../../live/data';
 import { usd, utc } from '../../lib/format';
 import '../../live/pages.css';
@@ -8,16 +8,21 @@ const NUM = new Intl.NumberFormat('en-US');
 const usdShort = (v: number) => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(0)}k` : usd(v));
 const Wait = ({ what }: { what: string }) => <div className="demo-wait label">Loading {what}…</div>;
 
+const Cur = createContext(1);
+
 export default function Usps() {
   const m = useMetrics();
+  const { hash } = useLocation();
+  const [cur, setCur] = useState(1);
+  useEffect(() => { const n = Number(hash.replace('#usp-', '')); if (n >= 1 && n <= 4) setCur(n); }, [hash]);
   return (
-    <div className="pg">
+    <Cur.Provider value={cur}><div className="pg">
       <header className="pg-head">
         <span className="label">Our four ideas · each one running on real data</span>
         <h2 className="pg-title">Four ways we catch a bridge hack, and prove it.</h2>
         <p className="pg-lede">A bridge holds coins on one chain and pays out the same coins on another. Every idea below checks a different part of that promise. Try each one; nothing here is a mock-up.</p>
-        <nav className="pg-pills" aria-label="Jump to an idea">
-          {['Accusation Budget', 'Contagion Radar', 'Signer DNA', 'Ledger Pairing'].map((n, i) => <a key={n} href={`#usp-${i + 1}`}><b>{i + 1}</b>{n}</a>)}
+        <nav className="pg-pills" role="tablist" aria-label="Pick an idea">
+          {['Accusation Budget', 'Contagion Radar', 'Signer DNA', 'Ledger Pairing'].map((n, i) => <button key={n} aria-selected={cur === i + 1} onClick={() => setCur(i + 1)}><b>{i + 1}</b>{n}</button>)}
         </nav>
       </header>
 
@@ -46,11 +51,12 @@ export default function Usps() {
       </Usp>
 
       <footer className="pg-foot">Want to see all four working together on one timeline? <Link to="/console/live">Open the live console →</Link></footer>
-    </div>
+    </div></Cur.Provider>
   );
 }
 
 function Usp({ n, name, tag, problem, how, children }: { n: number; name: string; tag: string; problem: string; how: string; children: ReactNode }) {
+  if (useContext(Cur) !== n) return null;
   return (
     <section className="usp" id={`usp-${n}`}>
       <div className="usp-copy">

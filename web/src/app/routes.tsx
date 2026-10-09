@@ -6,6 +6,7 @@ import { Landing } from '../pages/site/Landing';
 
 // Console and docs pages load on demand; the landing ships in the first chunk.
 const Live = lazy(() => import('../pages/console/Live'));
+const MapPage = lazy(() => import('../pages/console/Map'));
 const Usps = lazy(() => import('../pages/console/Usps'));
 const Evidence = lazy(() => import('../pages/console/Evidence'));
 const Results = lazy(() => import('../pages/console/Results'));
@@ -27,7 +28,7 @@ function ScrollTop() {
 }
 
 // Old page addresses (from the first prototype) land on their replacements.
-const MOVED: Record<string, string> = { lab: 'usps', eval: 'results' };
+const MOVED: Record<string, string> = { lab: 'usps', eval: 'results', graph: 'map' };
 
 export function AppRoutes() {
   return (
@@ -42,6 +43,7 @@ export function AppRoutes() {
           <Route path="console" element={<ConsoleLayout />}>
             <Route index element={<Navigate to="live" replace />} />
             <Route path="live" element={<Live />} />
+            <Route path="map" element={<MapPage />} />
             <Route path="usps" element={<Usps />} />
             <Route path="evidence" element={<Evidence />} />
             <Route path="results" element={<Results />} />
