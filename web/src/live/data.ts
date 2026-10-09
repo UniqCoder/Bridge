@@ -88,8 +88,12 @@ export function useClock(window: [number, number] | undefined, speed: number, pl
   useEffect(() => {
     if (!playing || !window) { last.current = null; return; }
     let raf = 0;
+    // Commit to React state ~12 times a second, not every frame: the whole console re-renders on each commit.
     const advance = (now: number) => {
-      if (last.current != null) setT((x) => Math.min(window[1], x + ((now - last.current!) / 1000) * speed));
+      if (last.current == null) { last.current = now; return; }
+      const dt = now - last.current;
+      if (dt < 80) return;
+      setT((x) => Math.min(window[1], x + (dt / 1000) * speed));
       last.current = now;
     };
     const step = (now: number) => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html, OrbitControls, Stars } from '@react-three/drei';
 import { Bloom, ChromaticAberration, EffectComposer, Vignette } from '@react-three/postprocessing';
@@ -215,7 +215,7 @@ function Scene({ data, n, selected, onSelect, spin, bare }: Props) {
       <Tunnel alarm={hasVoid} />
       <lineSegments geometry={geo}><lineBasicMaterial vertexColors transparent opacity={0.6} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} /></lineSegments>
       <points geometry={ptsGeo} frustumCulled={false}><pointsMaterial vertexColors size={0.16} sizeAttenuation transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></points>
-      <Stars radius={70} depth={40} count={bare ? 2200 : 1200} factor={2.4} fade speed={0.5} />
+      <Stars radius={70} depth={40} count={bare ? 1400 : 1000} factor={2.4} fade speed={0.5} />
       <gridHelper args={[80, 80, '#1c2026', '#101318']} position={[0, -1.2, 0]} />
       <instancedMesh ref={mesh} args={[BLOCK, undefined, data.events.length]} onClick={pick}>
         <meshBasicMaterial toneMapped={false} />
@@ -232,9 +232,15 @@ function Scene({ data, n, selected, onSelect, spin, bare }: Props) {
 
 type Props = { data: Replay; n: number; selected: string | null; onSelect: (id: string) => void; spin?: boolean; bare?: boolean };
 
-export default Map3D;
-
-export function Map3D(p: Props) {
+/** Renders only while on screen: an off-screen WebGL loop still costs a frame budget on every scroll. */
+export const Map3D = memo(function Map3D(p: Props) {
+  const box = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { rootMargin: '120px' });
+    if (box.current) io.observe(box.current);
+    return () => io.disconnect();
+  }, []);
   let dep = 0, backed = 0, gap = 0;
   for (let i = 0; i < p.n; i++) {
     const e = p.data.events[i], v = e.usd ?? 0;
@@ -242,8 +248,8 @@ export function Map3D(p: Props) {
   }
   const breach = gap > 0;
   return (
-    <div className="lg-canvas m3" role="img" aria-label={`3D map of ${p.data.label}: deposits on the left chain, the bridge vault in the middle, payouts on the right chain; copper packets and arcs are payouts with no deposit.`}>
-      <Canvas dpr={[1, 1.75]} camera={{ fov: 40, position: [44, 22, 70] }}><Scene {...p} /></Canvas>
+    <div ref={box} className="lg-canvas m3" role="img" aria-label={`3D map of ${p.data.label}: deposits on the left chain, the bridge vault in the middle, payouts on the right chain; copper packets and arcs are payouts with no deposit.`}>
+      <Canvas dpr={[1, 1.5]} frameloop={visible ? 'always' : 'never'} gl={{ powerPreference: 'high-performance', antialias: false }} camera={{ fov: 40, position: [44, 22, 70] }}><Scene {...p} /></Canvas>
       {!p.bare && <>
       <div className={`m3-hud ${breach ? 'is-breach' : ''}`} aria-hidden="true">
         <div><span>MONEY IN</span><b>{usd(dep)}</b><i>locked on the source chain</i></div>
@@ -254,4 +260,6 @@ export function Map3D(p: Props) {
       </>}
     </div>
   );
-}
+});
+
+export default Map3D;

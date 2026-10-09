@@ -9,6 +9,7 @@ import '../../app/landing.css';
 const Map3D = lazy(() => import('../../live/Map3D'));
 const NUM = new Intl.NumberFormat('en-US');
 const EASE = [0.16, 1, 0.3, 1] as const;
+const noop = () => {};
 const usdM = (v: number) => `$${(v / 1e6).toFixed(1)}M`;
 
 /* ── shared pieces ─────────────────────────────────────────────────────── */
@@ -66,7 +67,7 @@ function HeroScene({ data }: { data: Replay | null }) {
   return (
     <>
       <div className="hero-gl" aria-hidden="true">
-        {data && v && <Suspense fallback={null}><Map3D data={data} n={v.n} selected={null} onSelect={() => {}} spin bare /></Suspense>}
+        {data && v && <Suspense fallback={null}><Map3D data={data} n={v.n} selected={null} onSelect={noop} spin bare /></Suspense>}
       </div>
       <div className={`hero-live ${gap > 0 ? 'is-breach' : ''}`} aria-live="off">
         <span>{gap > 0 ? 'Nomad replay · payouts with no deposit' : 'Nomad replay · every payout backed'}</span>
