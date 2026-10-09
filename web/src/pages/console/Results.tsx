@@ -74,7 +74,7 @@ export default function Results() {
           <li>These are two real hacks plus practice attacks. That shows the idea works; it is not a promise for every future attack.</li>
           <li>The “exploit” label comes from the deposit rule, whose reference answers come from XChainWatcher's own matching rules. We reproduce them; we do not claim to have found the hacks independently.</li>
           <li>Statistics and machine learning only rank and explain. They never make the final call alone.</li>
-          <li>On Ronin the statistics alone miss the attack ({m.feeds.ronin.stat_alarms_on_attack}/2). The deposit rule catches it, and the signer finding is honest: the signers were ordinary, the withdrawal IDs were not.</li>
+          <li>On Ronin the statistics alone catch {m.feeds.ronin.stat_alarms_on_attack} of 2 attack payouts{m.feeds.ronin.stat_alarms_on_attack < 2 ? ', and only the second' : ''}. The deposit rule catches both from the first, and the signer finding is honest: the signers were ordinary, the withdrawal IDs were not.</li>
           <li>Dollar amounts are the dataset's historic values. The Ronin hack is widely quoted at $624M; the dataset's own total is {usd(m.feeds.ronin.counterfactual?.attack_usd ?? 0)}.</li>
           <li>The live Across feed shows API-reported transfer status. It does not independently verify backing or finality; the models abstain on these routes.</li>
         </ul></div></section>

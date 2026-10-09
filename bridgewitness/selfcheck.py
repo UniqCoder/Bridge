@@ -32,6 +32,8 @@ def main():
             "key_compromise" not in F["nomad"]["types_on_attack"],
         "Statistics alone (no rule) alarm on Nomad's swarm from its first release":
             F["nomad"]["stat_alarms_on_attack"] >= 100 and F["nomad"]["stat_first_alarm_after_s"] == 0,
+        "Statistics alone (no rule) catch a Ronin attack payout with 0 held-out Ronin false alarms":
+            F["ronin"]["stat_alarms_on_attack"] >= 1 and F["ronin"]["heldout_false_alarms"] == 0,
         "Simulated controls raise nothing": all(not s["types"] for s in F["simulated"]["scenarios"].values()
                                                  if s["truth"] == "control"),
     }

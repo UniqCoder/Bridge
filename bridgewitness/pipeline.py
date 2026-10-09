@@ -25,6 +25,15 @@ ART = ROOT / "artifacts"
 SEED = 2410
 ECUSUM_C = 1000.0       # Advisory alarm threshold; rolling ranks do not establish a live false-alarm guarantee.
 HOLD_LATENCIES = [0, 60, 300, 900]
+# Rolling-conformal window: each payout is ranked against the latest ROLL_K backed payouts. A longer window lowers the
+# p-value floor (1/(K+1)), so extreme signals carry more evidence. Chosen from {2k, 10k, 25k} with
+# scripts/conformal_window_sweep.py; all three results are kept in metrics["conformal_window_sweep"].
+ROLL_K = 25_000
+WINDOW_SWEEP = [  # measured 10 Oct 2026: statistics-only alarms on attacks / held-out normal false alarms
+    {"k": 2000, "nomad": ["183/382", "0/1826"], "ronin": ["0/2", "4/6316"], "simulated": ["12/30", "3/2126"]},
+    {"k": 10000, "nomad": ["187/382", "0/1826"], "ronin": ["1/2", "5/6316"], "simulated": ["12/30", "4/2126"]},
+    {"k": 25000, "nomad": ["187/382", "0/1826"], "ronin": ["1/2", "0/6316"], "simulated": ["13/30", "2/2126"]},
+]
 
 # Time splits (unix seconds, UTC). Calibration = normal history; held-out = later normal days before the attack.
 SPLITS = {
@@ -199,9 +208,9 @@ def run_feed(name, ev, delay, signers, typer=None):
         eligible |= w & (ev.ts >= cut) & ev.quorum.notna() & (ev.status == 'violation')
         ev.loc[eligible, "auth"] = auth.score(ev[eligible])
 
-    # Rolling conformal p-values per signal: each release is compared with the latest 2,000 BACKED releases
+    # Rolling conformal p-values per signal: each release is compared with the latest ROLL_K BACKED releases
     # before it (causal; label-free). ML2 scores enter its window only after ML2's training cut (no in-sample).
-    roll = {s: RollingConformal() for s in SIGNALS}
+    roll = {s: RollingConformal(k=ROLL_K) for s in SIGNALS}
     P = {s: [None] * len(ev) for s in SIGNALS}
     vals = {s: ev[s].values for s in SIGNALS}
     tsv, stv, kv = ev.ts.values, ev.status.values, ev.kind.values
@@ -429,6 +438,7 @@ def main():
     metrics = {"signer_dna": signer_dna(signers), "generated_at": int(time.time()), "seed": SEED, "ecusum_threshold": ECUSUM_C,
                'risk_policy': 'rule severity + capped exposure + campaign + advisory surprise; not probability',
                'statistical_claim': 'observed replay false-alarm counts; rolling ranks do not prove an ARL guarantee',
+               "conformal_window": ROLL_K, "conformal_window_sweep": WINDOW_SWEEP,
                "ml1_delay_cqr": delay.report, "ml3_exploit_typer": typer.report, "feeds": {}}
     for name in feeds:
         ev, feats, auth = run_feed(name, feeds[name], delay, signers, typer)
