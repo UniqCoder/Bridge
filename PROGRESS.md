@@ -1,5 +1,7 @@
 # BridgeWitness — Prototype Progress and Claims Register
 
+> **Current status:** the runtime has since changed to the Python engine, API and replay dashboard. See [the current prototype audit](docs/Prototype-Audit.md) for verified behavior, fixes and remaining limits. The sections below describe the earlier frontend prototype and are retained as historical notes.
+
 Status as of 9 Oct 2026 (updated after the plain-language and USP-demo pass). Problem statement: **CSB-01 — Real-Time Detection of Cross-Chain Bridge Exploits (Chainalysis)**.
 Sources of truth: `BridgeWitness-PRD.md` (v2.2), `HANDOFF.md`. Prototype: `web/` (run `npm run dev`; data from `npm run fixtures`).
 

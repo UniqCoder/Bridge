@@ -32,7 +32,7 @@ export default function Architecture() {
       <section><h3 className="h3">Data and keys</h3>
         <p className="lede">Real Nomad and Ronin transfers from XChainWatcher (Augusto et al., arXiv 2410.02029, MIT licence). Ronin signers come from public Ethereum transactions. The live feed reports Across API status; it does not independently verify backing or finality. Current public endpoints work without a key; replay files are available as a fallback.</p></section>
       <section><h3 className="h3">Server endpoints</h3>
-        <table className="tbl"><tbody>{[['/health', 'is it up'], ['/replay/{feed}', 'a full replay: events, evidence, timelines'], ['/stream/{feed}?speed=60', 'the same replay as a live stream (Server-Sent Events)'], ['/metrics', 'every measured number'], ['/live', 'the live bridge feed, checked against the deposit rule']].map(([a, b]) => <tr key={a}><td className="mono">{a}</td><td>{b}</td></tr>)}</tbody></table></section>
+        <table className="tbl"><tbody>{[['/health', 'is it up'], ['/replay/{feed}', 'a full replay: events, evidence, timelines'], ['/stream/{feed}?speed=60', 'the same replay as a live stream (Server-Sent Events)'], ['/metrics', 'every measured number'], ['/live', 'Across API-reported status; backing not independently verified']].map(([a, b]) => <tr key={a}><td className="mono">{a}</td><td>{b}</td></tr>)}</tbody></table></section>
     </div>
   );
 }

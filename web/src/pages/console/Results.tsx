@@ -76,13 +76,13 @@ export default function Results() {
           <li>Statistics and machine learning only rank and explain. They never make the final call alone.</li>
           <li>On Ronin the statistics alone miss the attack ({m.feeds.ronin.stat_alarms_on_attack}/2). The deposit rule catches it, and the signer finding is honest: the signers were ordinary, the withdrawal IDs were not.</li>
           <li>Dollar amounts are the dataset's historic values. The Ronin hack is widely quoted at $624M; the dataset's own total is {usd(m.feeds.ronin.counterfactual?.attack_usd ?? 0)}.</li>
-          <li>The live feed (Across) only runs the deposit rule. The models stay silent there because they have no history for those routes.</li>
+          <li>The live Across feed shows API-reported transfer status. It does not independently verify backing or finality; the models abstain on these routes.</li>
         </ul></div></section>
     </div>
   );
 }
 
-const plain = (s: string) => s.replace('B1 whale > $1M', 'Flag any payout above $1 million').replace('B2 volume z-score > 3', 'Flag when volume is 3× above normal').replace('B3 message-id join', 'Match payouts to deposits by message ID').replace('BridgeWitness (exploit)', 'BridgeWitness · “exploit” label').replace('BridgeWitness (any alert)', 'BridgeWitness · any alert');
+const plain = (s: string) => s.replace('B1 whale > $1M', 'Flag any payout above $1 million').replace('B2 volume z-score > 3', 'Flag volume over 3 standard deviations above normal').replace('B3 message-id join', 'Match payouts to deposits by message ID').replace('BridgeWitness (exploit)', 'BridgeWitness · “exploit” label').replace('BridgeWitness (any alert)', 'BridgeWitness · any alert');
 
 const Kpi = ({ big, t, s, good }: { big: string; t: string; s: string; good?: boolean }) => (
   <div className={`kpi ${good ? 'kpi--good' : ''}`}><b className="mono">{big}</b><span>{t}</span><small>{s}</small></div>
