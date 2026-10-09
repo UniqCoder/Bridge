@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .algos import (CopycatClusters, ECusum, MidasR, cauchy_combine, conformal_p, hawkes_branching,
+from .algos import (CopycatClusters, ECusum, MidasR, RollingConformal, e_mean, hawkes_branching,
                     pair_and_ledger, p_to_e, shingles)
 from .ingest import FEEDS, load_events, load_pairs
 from .ml import CLF_FEATS, PRECEDENT, TYPE_TEXT, TYPES, AuthModel, DelayCQR, ExploitTyper, synth_training
@@ -31,10 +31,15 @@ SPLITS = {
     "ronin": {"calib_end": 1646092800, "window": (1648026000, 1648044000), "label": "Ronin · 23 Mar 2022"},   # 1 Mar; 09:00→14:00
     "simulated": {"calib_end": 1646092800, "window": (1646899200, 1646913600), "label": "Simulated attack replay (seed 2410)"},
 }
-SIGNALS = ["midas", "cluster_log", "hawkes_n", "value_vs_route", "id_jump_pos", "auth"]
+SIGNALS = ["burst", "midas", "cluster_log", "hawkes_n", "value_vs_route", "id_jump_pos", "auth"]
 
 
 # ---------------------------------------------------------------- simulated attack replay
+def signers_of_attack():
+    from .signers import ATTACK_SIGNERS
+    return ATTACK_SIGNERS
+
+
 def simulated_events(seed=SEED):
     """Real Ronin traffic up to 10 Mar 2022 12:00 + injected, labelled attack scenarios and benign controls."""
     rng = np.random.default_rng(seed)
@@ -61,6 +66,7 @@ def simulated_events(seed=SEED):
     add(T(55), "withdrawal", old.token, old.amount, old.value_usd, old.msg_id, old.recipient, "attack", "Replay",
         old.decimals, old.symbol)
     add(T(80), "withdrawal", weth, 13_000 * 10**18, 38_000_000, max_id + 900_000, addr(), "attack", "Key compromise")
+    rows[-1]["sim_signers"] = ",".join(sorted(signers_of_attack()))  # validly signed by a (stolen) real quorum
     gap_t = T(110)
     for i in range(25):  # self-exciting: each copycat shortens the wait for the next (contagion)
         gap_t += float(rng.exponential(max(4.0, 90 * 0.85 ** i)))
@@ -92,7 +98,9 @@ def stream_signals(ev, signers):
     """One causal pass: every signal uses only events at or before the current one."""
     w = ev.kind == "withdrawal"
     n = len(ev)
-    S = {k: np.zeros(n) for k in ("midas", "cluster_size", "hawkes_n", "id_reused", "id_jump", "value_vs_route")}
+    S = {k: np.zeros(n) for k in ("burst", "midas", "cluster_size", "hawkes_n", "id_reused", "id_jump", "value_vs_route")}
+    from collections import deque
+    recent10, recent7d = deque(), deque()  # volume spike: releases in last 10 min vs trailing 7-day rate
     S["cluster"] = np.array([None] * n, dtype=object)
     midas, lsh = MidasR(), CopycatClusters()
     seen_ids, max_id = set(), None
@@ -107,13 +115,19 @@ def stream_signals(ev, signers):
             continue
         midas.advance(int((r.ts - t_start) // 60) + 1)
         S["midas"][i] = midas.score(f"m:{r.msg_id}", f"t:{r.symbol}")
+        for q, span in ((recent10, 600), (recent7d, 7 * 86400)):
+            q.append(r.ts)
+            while q and q[0] <= r.ts - span:
+                q.popleft()
+        expected10 = len(recent7d) * 600 / (7 * 86400)
+        S["burst"][i] = math.log((len(recent10) + 1) / (expected10 + 1))
         S["id_reused"][i] = r.msg_id in seen_ids
         seen_ids.add(r.msg_id)
         if not math.isnan(msg[i]):
             S["id_jump"][i] = 0 if max_id is None else msg[i] - max_id
             max_id = msg[i] if max_id is None else max(max_id, msg[i])
         S["value_vs_route"][i] = float(r.value_usd or 0) / max(route_daily, 1.0)
-        root, size = lsh.add(r.event_id, shingles(r, batch[i]))
+        root, size = lsh.add(r.event_id, shingles(r, batch[i]), r.ts)
         S["cluster"][i], S["cluster_size"][i] = root, size
         if size >= 8:  # exploit R0: Hawkes fit on this cluster's last 2 h, refreshed at most once a minute
             times = cluster_times.setdefault(root, [])
@@ -136,6 +150,10 @@ def stream_signals(ev, signers):
             if tx in sig.index:
                 s = sig.loc[tx]
                 q[i], ns[i] = ",".join(sorted(s.signers.split(","))), s.n_signers
+    if "sim_signers" in ev:  # simulated scenarios carry their (labelled) signer set directly
+        for i, s in enumerate(ev.sim_signers.values):
+            if isinstance(s, str):
+                q[i], ns[i] = s, len(s.split(","))
     out["quorum"], out["n_signers"] = q, ns
     return out
 
@@ -167,27 +185,39 @@ def run_feed(name, ev, delay, signers, typer=None):
 
     # ML2: authorization model (Ronin-family feeds only; Nomad has no signer data and abstains)
     ev["auth"] = np.nan
-    auth = None
+    auth, cut = None, 0
     if name != "nomad":
         # time split inside the calibration period: fit on the first 2/3, conformal-calibrate on the last 1/3
         cut = ev.loc[cal, "ts"].quantile(2 / 3)
         auth = AuthModel().fit(ev[cal & (ev.ts < cut)])
         ev.loc[w, "auth"] = auth.score(ev[w])
 
-    # Conformal p-values per signal, calibrated on normal history only
-    calib = {s: np.sort(ev.loc[cal, s].dropna().values) for s in SIGNALS if ev.loc[cal, s].notna().any()}
-    if auth is not None:
-        calib["auth"] = np.sort(ev.loc[cal & (ev.ts >= cut), "auth"].dropna().values)
+    # Rolling conformal p-values per signal: each release is compared with the latest 2,000 BACKED releases
+    # before it (causal; label-free). ML2 scores enter its window only after ML2's training cut (no in-sample).
+    roll = {s: RollingConformal() for s in SIGNALS}
+    P = {s: [None] * len(ev) for s in SIGNALS}
+    vals = {s: ev[s].values for s in SIGNALS}
+    tsv, stv, kv = ev.ts.values, ev.status.values, ev.kind.values
+    for i in range(len(ev)):
+        if kv[i] != "withdrawal":
+            continue
+        for s in SIGNALS:
+            v = vals[s][i]
+            if v is None or (isinstance(v, float) and math.isnan(v)):
+                continue
+            P[s][i] = roll[s].p(v)
+            if stv[i] == "consistent" and (s != "auth" or tsv[i] >= cut):
+                roll[s].add(float(v))
     for s in SIGNALS:
-        ev[f"p_{s}"] = [conformal_p(calib[s], v) if s in calib and not pd.isna(v) and wi else None
-                        for v, wi in zip(ev[s].values, w.values)]
-    ev["p_comb"] = [cauchy_combine([r[f"p_{s}"] for s in SIGNALS]) if wi else None
-                    for (_, r), wi in zip(ev[[f"p_{s}" for s in SIGNALS]].iterrows(), w.values)]
+        ev[f"p_{s}"] = P[s]
+    comb = [e_mean([r[f"p_{s}"] for s in SIGNALS]) if wi else (None, None)
+            for (_, r), wi in zip(ev[[f"p_{s}" for s in SIGNALS]].iterrows(), w.values)]
+    ev["e_comb"], ev["p_comb"] = [c[0] for c in comb], [c[1] for c in comb]
 
     # e-CUSUM alarm from the end of calibration onward (held-out normal days + the incident)
     det, alarm, mval = ECusum(ECUSUM_C), [False] * len(ev), [None] * len(ev)
     for i in np.where(w.values & (ev.ts.values >= sp["calib_end"]))[0]:
-        fired, m = det.update(p_to_e(ev.p_comb.iat[i]))
+        fired, m = det.update(ev.e_comb.iat[i])
         alarm[i], mval[i] = fired, m
     ev["alarm"], ev["ecusum"] = alarm, mval
 
@@ -281,6 +311,7 @@ def to_replay(name, ev, sp, feats):
                                   "signers": r.quorum.split(",") if isinstance(r.quorum, str) else None},
                       "p": {s: None if r[f"p_{s}"] is None else float(f"{r[f'p_{s}']:.3g}") for s in SIGNALS},
                       "p_comb": None if r.p_comb is None else float(f"{r.p_comb:.3g}"),
+                      "e_comb": None if r.e_comb is None else float(f"{r.e_comb:.3g}"),
                       "ecusum": None if r.ecusum is None else float(f"{r.ecusum:.3g}"), "alarm": bool(r.alarm),
                       "risk": int(r.risk), "level": r.level,
                       "type": r.type, "type_text": TYPE_TEXT.get(r.type), "type_prob": None if r.type_prob is None else round(r.type_prob, 3),
@@ -344,6 +375,9 @@ def main():
              "heldout_false_alarms": int(held.alarm.sum()),
              "heldout_false_alarm_rate": round(float(held.alarm.mean()), 5) if len(held) else None,
              "rules": att.rule.value_counts().to_dict(),
+             # the statistical layer on its own (no conservation rule): does it see the attack?
+             "stat_alarms_on_attack": int(att.alarm.sum()),
+             "stat_first_alarm_after_s": None if not att.alarm.any() else int(att[att.alarm].ts.min() - att.ts.min()),
              "types_on_attack": att.type.value_counts().to_dict(),
              "max_cluster": int(att.cluster_size.max()) if len(att) else 0,
              "max_hawkes_n": round(float(att.hawkes_n.max()), 3) if len(att) else 0,
@@ -359,12 +393,23 @@ def main():
         metrics["feeds"][name] = m
         rep = to_replay(name, ev, sp, feats)
         rep["metrics"] = m
-        (ART / f"replay_{name}.json").write_text(json.dumps(rep, default=_json), encoding="utf-8")
+        (ART / f"replay_{name}.json").write_text(json.dumps(_clean(rep), default=_json, allow_nan=False), encoding="utf-8")
         print(name, json.dumps({k: v for k, v in m.items() if k not in ("scorecard", "counterfactual", "scenarios")}, default=_json))
-    (ART / "metrics.json").write_text(json.dumps(metrics, indent=1, default=_json), encoding="utf-8")
+    (ART / "metrics.json").write_text(json.dumps(_clean(metrics), indent=1, default=_json, allow_nan=False), encoding="utf-8")
     with open(ART / "models.pkl", "wb") as fh:
         pickle.dump({"delay": delay}, fh)
     print("done", round(time.time() - t_all, 1), "s")
+
+
+def _clean(o):
+    """Unknown values (e.g. releases the dataset could not price) become null, never NaN: strict JSON only."""
+    if isinstance(o, dict):
+        return {k: _clean(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [_clean(v) for v in o]
+    if isinstance(o, (float, np.floating)) and not math.isfinite(o):
+        return None
+    return o
 
 
 def _json(o):

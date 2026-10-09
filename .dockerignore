@@ -1,0 +1,6 @@
+**
+!bridgewitness/__init__.py
+!bridgewitness/api.py
+!bridgewitness/live_tail.py
+!bridgewitness/requirements-api.txt
+!bridgewitness/artifacts/*.json

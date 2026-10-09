@@ -1,0 +1,11 @@
+# Offline build (training + replays): python -m bridgewitness.pipeline && python -m bridgewitness.selfcheck
+numpy==2.2.6
+pandas==2.2.2
+pyarrow
+scipy==1.15.3
+scikit-learn==1.5.0
+lightgbm==4.3.0
+datasketch
+eth-keys==0.8.0
+eth-utils
+requests==2.32.3

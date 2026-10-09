@@ -7,7 +7,8 @@ import { controls, useClock, useReplay } from '../data/replay';
 import { utc } from '../lib/format';
 
 export const TABS: { to: string; label: string; glyph: JSX.Element; hint: string; short?: string }[] = [
-  { to: 'monitor', label: 'Monitor', glyph: Glyph.monitor, hint: 'Watch a bridge feed and see risk-scored alerts' },
+  { to: 'live', label: 'Live console', short: 'Live', glyph: Glyph.monitor, hint: 'Replay real attacks or tail a live bridge: graph, alerts, reasons, proof' },
+  { to: 'monitor', label: 'Monitor (v2)', short: 'v2', glyph: Glyph.eval, hint: 'Previous fixture-mode dashboard' },
   { to: 'lab', short: 'USPs', label: 'USP demos', glyph: Glyph.seal, hint: 'Try each of our 7 USPs' },
   { to: 'gauntlet', short: 'Attacks', label: 'Attack tests', glyph: Glyph.gauntlet, hint: 'Run 12 attacks against a simulated bridge' },
   { to: 'evidence', label: 'Evidence', glyph: Glyph.evidence, hint: 'Check an alert yourself, or try to tamper with it' },

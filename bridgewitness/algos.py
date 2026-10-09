@@ -1,7 +1,7 @@
 """The six deterministic algorithms (no training).
 
 A1 conservation ledger + rule verdicts   A2 Hungarian pairing        A3 MinHash-LSH copycat clusters
-A4 MIDAS-R edge-stream bursts            A5 Hawkes branching ratio   A6 conformal p -> e-value -> e-CUSUM alarm
+A4 MIDAS-R edge-stream bursts            A5 Hawkes branching ratio   A6 conformal p -> e-values (averaged) -> e-CUSUM alarm
 """
 import math
 from collections import defaultdict
@@ -95,7 +95,7 @@ def shingles(r, batch):
 class CopycatClusters:
     def __init__(self, threshold=0.6, num_perm=64):
         self.lsh = MinHashLSH(threshold=threshold, num_perm=num_perm)
-        self.num_perm, self.parent, self.size = num_perm, {}, defaultdict(int)
+        self.num_perm, self.threshold, self.parent, self.times, self.sig = num_perm, threshold, {}, {}, {}
 
     def _root(self, k):
         while self.parent[k] != k:
@@ -103,51 +103,60 @@ class CopycatClusters:
             k = self.parent[k]
         return k
 
-    def add(self, key, sh):
+    def add(self, key, sh, ts, window=7200):
+        """Insert a release; returns (cluster id, members seen in the last `window` seconds).
+        LSH candidates are verified (estimated Jaccard >= threshold) before merging, so chance
+        collisions cannot chain unrelated releases into one giant cluster."""
         m = MinHash(num_perm=self.num_perm, seed=2410)
         for x in sh:
             m.update(x.encode())
-        self.parent[key], self.size[key] = key, 1
+        self.parent[key], self.times[key] = key, [ts]
         for other in self.lsh.query(m):
+            if m.jaccard(self.sig[other]) < self.threshold:
+                continue
             ra, rb = self._root(key), self._root(other)
             if ra != rb:
                 self.parent[ra] = rb
-                self.size[rb] += self.size.pop(ra)
+                self.times[rb] += self.times.pop(ra)
         self.lsh.insert(key, m)
+        self.sig[key] = m
         root = self._root(key)
-        return root, self.size[root]
+        tl = self.times[root] = [x for x in self.times[root] if x > ts - window]
+        return root, len(tl)
 
 
 # ---------------------------------------------------------------- A4: MIDAS-R (Bhatia et al., AAAI 2020)
 class MidasR:
-    """Count-min sketches over edges and both endpoints; chi-square burst score with temporal decay."""
+    """MIDAS-R edge scoring with a count-min sketch: chi-square burst score with temporal decay.
 
-    def __init__(self, rows=4, buckets=1024, decay=0.5, seed=2410):
+    Only the edge sketch is kept (see score()). Width 65,536 keeps collisions negligible for the
+    ~10^4-10^5 distinct (message, token) edges a bridge sees, so "seen before" is not a hash artefact."""
+
+    def __init__(self, rows=4, buckets=65536, decay=0.5, seed=2410):
         rng = np.random.default_rng(seed)
         self.a, self.b = rng.integers(1, 2**31 - 1, rows), rng.integers(0, 2**31 - 1, rows)
-        self.cur = {k: np.zeros((rows, buckets)) for k in ("e", "u", "v")}
-        self.tot = {k: np.zeros((rows, buckets)) for k in ("e", "u", "v")}
+        self.cur, self.tot = np.zeros((rows, buckets)), np.zeros((rows, buckets))
         self.buckets, self.decay, self.tick = buckets, decay, 1
 
-    def _h(self, key):
-        return (self.a * (hash(key) & 0x7FFFFFFF) + self.b) % 2147483647 % self.buckets
-
-    def _score(self, k, key):
-        h = self._h(key)
-        idx = (np.arange(len(h)), h)
-        self.cur[k][idx] += 1
-        self.tot[k][idx] += 1
-        a, s, t = self.cur[k][idx].min(), self.tot[k][idx].min(), self.tick
-        return 0.0 if s == 0 or t == 1 else (a - s / t) ** 2 * t * t / (s * (t - 1))
+    def _idx(self, key):
+        h = (self.a * (hash(key) & 0x7FFFFFFF) + self.b) % 2147483647 % self.buckets
+        return np.arange(len(h)), h
 
     def advance(self, tick):
-        while self.tick < tick:
-            for k in self.cur:
-                self.cur[k] *= self.decay
-            self.tick += 1
+        if tick > self.tick:  # decay once for the whole jump (identical to per-tick decay)
+            self.cur *= self.decay ** (tick - self.tick)
+            self.tick = tick
 
     def score(self, u, v):
-        return math.log1p(max(self._score("e", (u, v)), self._score("u", u), self._score("v", v)))
+        """Repeat-edge burst: an edge scores only once it repeats. (A first-seen edge scores ~t in MIDAS,
+        and node scores on sparse streams track the traffic level; both drift, so they are not used.)"""
+        idx = self._idx((u, v))
+        self.cur[idx] += 1
+        self.tot[idx] += 1
+        a, s, t = self.cur[idx].min(), self.tot[idx].min(), self.tick
+        if s <= 1 or t == 1:
+            return 0.0
+        return math.log1p((a - s / t) ** 2 * t * t / (s * (t - 1)))
 
 
 # ---------------------------------------------------------------- A5: Hawkes branching ratio
@@ -198,13 +207,30 @@ def conformal_p(calib_sorted, s):
     return (1 + ge) / (n + 1)
 
 
-def cauchy_combine(ps):
-    """Cauchy combination test (Liu & Xie, JASA 2020): valid combined p under arbitrary dependence (tail)."""
-    ps = [min(max(p, 1e-15), 1 - 1e-15) for p in ps if p is not None]
-    if not ps:
-        return None
-    T = np.mean([math.tan((0.5 - p) * math.pi) for p in ps])
-    return float(min(1.0, max(1e-15, 0.5 - math.atan(T) / math.pi)))
+class RollingConformal:
+    """Split-conformal p-values against the most recent K calibration scores (sliding window).
+    Handles slow drift; only releases the deterministic rule found BACKED enter the window, so an attacker's
+    unbacked releases can never poison the notion of "normal"."""
+
+    def __init__(self, k=2000, warmup=200):
+        from collections import deque
+        self.k, self.warmup, self.q, self.sorted = k, warmup, deque(), []
+
+    def p(self, s):
+        import bisect
+        n = len(self.sorted)
+        if n < self.warmup or s is None:
+            return None
+        ge = n - bisect.bisect_left(self.sorted, s)
+        return (1 + ge) / (n + 1)
+
+    def add(self, s):
+        import bisect
+        self.q.append(s)
+        bisect.insort(self.sorted, s)
+        if len(self.q) > self.k:
+            old = self.q.popleft()
+            self.sorted.pop(bisect.bisect_left(self.sorted, old))
 
 
 KAPPAS = (0.05, 0.1, 0.2, 0.5)
@@ -213,6 +239,17 @@ KAPPAS = (0.05, 0.1, 0.2, 0.5)
 def p_to_e(p):
     """Mixture of p-to-e calibrators kappa * p^(kappa-1): a valid e-value (E <= 1 under the null)."""
     return float(np.mean([k * p ** (k - 1) for k in KAPPAS]))
+
+
+def e_mean(ps):
+    """Combine signals by averaging their e-values (Vovk & Wang, Ann. Stat. 2021): the mean of e-values is an
+    e-value under ANY dependence, and an uninformative signal (p ~ 1) adds ~0 instead of cancelling evidence.
+    Returns (e, p) with p = min(1, 1/e) (Markov), used for display and the risk score."""
+    es = [p_to_e(max(p, 1e-15)) for p in ps if p is not None and math.isfinite(p)]
+    if not es:
+        return None, None
+    e = float(np.mean(es))
+    return e, min(1.0, 1.0 / e)
 
 
 class ECusum:
@@ -226,6 +263,10 @@ class ECusum:
         self.c, self.m = c, 1.0
 
     def update(self, e):
+        # Missing evidence is neutral (e = 1). A NaN must never reach the statistic: max(NaN, 1) is NaN,
+        # which would silently disable the detector for the rest of the stream.
+        if e is None or not math.isfinite(e):
+            e = 1.0
         self.m = max(self.m, 1.0) * e
         if self.m >= self.c:
             peak, self.m = self.m, 1.0
@@ -247,6 +288,13 @@ def _selftest():
     casc = list(pois[:20]) + list(pois[19] + np.cumsum(rng.exponential(3, 150)))
     assert hawkes_branching(casc)[0] > 0.5
     assert conformal_p(np.arange(99.0), 1000) == 0.01
+    d = ECusum(1000)
+    d.update(float("nan"))
+    assert any(d.update(p_to_e(1 / 2000))[0] for _ in range(3)), "NaN must not disable the detector"
+    # e-value mean: E[e] <= 1 under the null even with perfectly dependent signals; p ~ 1 cannot cancel evidence
+    u = rng.uniform(size=20000)
+    assert np.mean([e_mean([p, p, p])[0] for p in u]) < 1.1
+    assert e_mean([3.8e-4] * 3 + [1.0, 1.0, 0.066])[1] < 0.05
     print("algos selftest ok", false)
 
 

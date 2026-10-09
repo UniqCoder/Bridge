@@ -1,5 +1,5 @@
 {
- "generated_at": 1791546616,
+ "generated_at": 1791548153,
  "seed": 2410,
  "ecusum_threshold": 1000.0,
  "ml1_delay_cqr": {
@@ -24,7 +24,7 @@
   }
  },
  "ml3_exploit_typer": {
-  "synthetic_holdout_accuracy": 0.9995833333333334,
+  "synthetic_holdout_accuracy": 1.0,
   "note": "accuracy on held-out SYNTHETIC rows only; real incidents reported per incident"
  },
  "feeds": {
@@ -35,18 +35,19 @@
    "normal_false_exploit": 0,
    "heldout_normal": 1826,
    "heldout_days": 31.9,
-   "heldout_false_alarms": 1,
-   "heldout_false_alarm_rate": 0.00055,
+   "heldout_false_alarms": 0,
+   "heldout_false_alarm_rate": 0.0,
    "rules": {
     "missing_source_deposit": 382
    },
+   "stat_alarms_on_attack": 179,
+   "stat_first_alarm_after_s": 0,
    "types_on_attack": {
-    "copycat_swarm": 328,
-    "message_replay": 49,
-    "key_compromise": 3,
-    "unbacked_release": 2
+    "copycat_swarm": 324,
+    "message_replay": 53,
+    "unbacked_release": 5
    },
-   "max_cluster": 280,
+   "max_cluster": 275,
    "max_hawkes_n": 0.979,
    "scorecard": [
     {
@@ -86,8 +87,8 @@
      "attack_flagged": "382/382",
      "first_alert_after_s": 0,
      "usd_before_first_alert": 0.0,
-     "false_alerts": 1,
-     "false_alerts_per_day": 0.03
+     "false_alerts": 0,
+     "false_alerts_per_day": 0.0
     }
    ],
    "counterfactual": {
@@ -139,11 +140,13 @@
    "normal_false_exploit": 0,
    "heldout_normal": 6316,
    "heldout_days": 28.6,
-   "heldout_false_alarms": 0,
-   "heldout_false_alarm_rate": 0.0,
+   "heldout_false_alarms": 4,
+   "heldout_false_alarm_rate": 0.00063,
    "rules": {
     "missing_source_deposit": 2
    },
+   "stat_alarms_on_attack": 0,
+   "stat_first_alarm_after_s": null,
    "types_on_attack": {
     "key_compromise": 2
    },
@@ -187,8 +190,8 @@
      "attack_flagged": "2/2",
      "first_alert_after_s": 0,
      "usd_before_first_alert": 0.0,
-     "false_alerts": 0,
-     "false_alerts_per_day": 0.0
+     "false_alerts": 4,
+     "false_alerts_per_day": 0.14
     }
    ],
    "counterfactual": {
@@ -233,10 +236,10 @@
     ]
    },
    "auth_attack_p": [
-    0.0109,
-    0.0243
+    0.0125,
+    0.024
    ],
-   "auth_heldout_median_p": 0.287
+   "auth_heldout_median_p": 0.417
   },
   "simulated": {
    "withdrawals": 18683,
@@ -245,13 +248,15 @@
    "normal_false_exploit": 0,
    "heldout_normal": 2126,
    "heldout_days": 9.5,
-   "heldout_false_alarms": 0,
-   "heldout_false_alarm_rate": 0.0,
+   "heldout_false_alarms": 3,
+   "heldout_false_alarm_rate": 0.00141,
    "rules": {
     "missing_source_deposit": 28,
     "amount_mismatch": 1,
     "recipient_mismatch": 1
    },
+   "stat_alarms_on_attack": 12,
+   "stat_first_alarm_after_s": 4973,
    "types_on_attack": {
     "copycat_swarm": 19,
     "message_replay": 6,
@@ -300,8 +305,8 @@
      "attack_flagged": "30/30",
      "first_alert_after_s": 0,
      "usd_before_first_alert": 0.0,
-     "false_alerts": 0,
-     "false_alerts_per_day": 0.0
+     "false_alerts": 3,
+     "false_alerts_per_day": 0.32
     }
    ],
    "counterfactual": {
@@ -346,38 +351,38 @@
     ]
    },
    "auth_attack_p": [
-    0.268,
-    0.399,
-    0.159,
-    0.311,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.634,
-    0.192,
-    0.197
+    0.332,
+    0.463,
+    0.0155,
+    0.371,
+    0.658,
+    0.658,
+    0.658,
+    0.658,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.659,
+    0.255,
+    0.262
    ],
-   "auth_heldout_median_p": 0.438,
+   "auth_heldout_median_p": 0.458,
    "scenarios": {
     "Amount mismatch": {
      "truth": "attack",

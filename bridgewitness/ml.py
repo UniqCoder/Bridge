@@ -163,7 +163,7 @@ def synth_training(normal_feats, n_per=1500, seed=SEED):
                 r.update(unbacked=1, id_reused=int(rng.random() < .85), hawkes_n=U(.4, 1.5), midas=U(2, 12))
                 size = int(rng.integers(8, 400))
             elif typ == "key_compromise":
-                r.update(unbacked=1, id_reused=0, hawkes_n=0.0, signed=float(rng.random() < .7),
+                r.update(unbacked=1, id_reused=0, hawkes_n=0.0, signed=1.0,
                          id_jump_log=U(8, 15) if rng.random() < .75 else U(0, 3),
                          log_usd=U(13, 21), value_vs_route=10 ** U(-.5, 2.5))
             elif typ == "amount_mismatch":
@@ -205,6 +205,8 @@ class ExploitTyper:
         # and one that did not break it can never be typed as an unbacked/mismatch exploit.
         viol = (X[["unbacked", "amount_mismatch", "recipient_mismatch"]].values.max(1) > 0)[:, None]
         C = np.where(viol, C * ALLOWED_VIOL, C * ALLOWED_OK)
+        # "Key compromise" claims someone signed with stolen keys: only allowed when signatures were recovered.
+        C[:, TYPES.index("key_compromise")] *= X["signed"].values > 0
         C = C / C.sum(1, keepdims=True)
         return C.argmax(1), C
 

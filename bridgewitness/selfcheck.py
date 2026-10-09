@@ -28,6 +28,10 @@ def main():
             + F["nomad"]["types_on_attack"].get("message_replay", 0) >= 0.9 * 382,
         "Nomad copycat cluster >= 250 and Hawkes n near-critical (> 0.9)":
             F["nomad"]["max_cluster"] >= 250 and F["nomad"]["max_hawkes_n"] > 0.9,
+        "Never 'key compromise' without recovered signatures (Nomad has none)":
+            "key_compromise" not in F["nomad"]["types_on_attack"],
+        "Statistics alone (no rule) alarm on Nomad's swarm from its first release":
+            F["nomad"]["stat_alarms_on_attack"] >= 100 and F["nomad"]["stat_first_alarm_after_s"] == 0,
         "Simulated controls raise nothing": all(not s["types"] for s in F["simulated"]["scenarios"].values()
                                                  if s["truth"] == "control"),
     }
