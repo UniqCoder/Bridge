@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertCard } from '../../live/AlertCard';
 import { Map3D } from '../../live/Map3D';
 import { FEEDS, useClock, useReplayData, useView, type Replay } from '../../live/data';
@@ -26,6 +27,8 @@ function MapView({ data }: { data: Replay }) {
   const [t, setT] = useClock(data.window, (data.window[1] - data.window[0]) / 40, playing);
   const v = useView(data, Math.max(t, start))!;
   const [sel, setSel] = useState<string | null>(null);
+  const [qs] = useSearchParams();
+  useEffect(() => { const q = Number(qs.get('t')); if (q > 0) { setT(Math.min(Math.max(q, data.window[0]), data.window[1])); setPlaying(false); } }, [data]);
   const byId = useMemo(() => new Map(data.events.map((e) => [e.id, e])), [data]);
   const top = sel ? byId.get(sel) ?? null : v.alerts[v.alerts.length - 1] ?? null;
   return (

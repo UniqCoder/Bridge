@@ -23,6 +23,32 @@ const IDEAS = [
     how: 'We match by amount, recipient and timing, one deposit to one payout, and each deposit can only be used once. A payout with no deposit behind it is unbacked. The gap between money in and money out is tracked live, and you can click to see who caused it.' },
 ];
 
+const TAKE = [
+  'A judge can ask "how often are you wrong?" and get a number, not a promise: 0 false alarms in 1,826 unseen Nomad payouts. And the word EXPLOIT is only ever said when the deposit rule breaks.',
+  'This is what separates a swarm of copycats from a pile of small payments. A spread number near 1 means the attack feeds itself, so the right move is to hold the route right away.',
+  'We did not invent signers. We recovered them from real signatures, then reported honestly that the Ronin attackers looked ordinary. The withdrawal ID is what gave them away.',
+  'Matching by message ID caught 41 of 382 Nomad attack payouts. Matching by amount, person and timing caught all 382, because every deposit can be used only once.',
+];
+
+function KeyStats({ n, m }: { n: number; m: Metrics | null }) {
+  const nm = m?.feeds.nomad, rn = m?.feeds.ronin, s = m?.signer_dna;
+  const rows: [string, string, string][][] = [
+    [[nm ? `${nm.heldout_false_alarms} of ${NUM.format(nm.heldout_normal)}` : '…', 'false alarms on unseen normal Nomad payouts', 'ok'],
+     [nm ? `${nm.attack_flagged_exploit} / ${nm.attack_releases}` : '…', 'Nomad attack payouts labelled exploit', 'ok'],
+     [nm ? String(nm.normal_false_exploit) : '…', 'honest Nomad payouts wrongly called exploit', 'ok']],
+    [[nm ? String(nm.max_cluster) : '…', 'payouts in the biggest copycat cluster', 'bad'],
+     [nm ? nm.max_hawkes_n.toFixed(2) : '…', 'spread number (1 = feeds itself)', 'bad'],
+     [nm ? `${nm.stat_alarms_on_attack} / ${nm.attack_releases}` : '…', 'attack payouts the statistics alone flagged', 'ok']],
+    [['9 · 5', 'Ronin validators · needed to approve', ''],
+     [s ? NUM.format(s.normal_sampled) : '…', 'normal withdrawals with recovered signers', 'ok'],
+     [s ? `${(s.attack_quorum_share * 100).toFixed(1)}%` : '…', 'normal withdrawals signed by the attack group too', 'warn']],
+    [[nm ? `${nm.attack_flagged_exploit} / ${nm.attack_releases}` : '…', 'attack payouts caught by ledger pairing', 'ok'],
+     [nm?.counterfactual ? usdShort(nm.counterfactual.attack_usd) : '…', 'paid out with no deposit behind it', 'bad'],
+     [rn ? `${rn.attack_flagged_exploit} / ${rn.attack_releases}` : '…', 'Ronin attack payouts caught', 'ok']],
+  ];
+  return <div className="keystats">{rows[n - 1].map(([v, l, t]) => <div key={l} className={t ? `ks--${t}` : ''}><b>{v}</b><span>{l}</span></div>)}</div>;
+}
+
 /** One page per idea: what it is, why it matters, then a demo on real data. */
 export default function Usps({ n }: { n: 1 | 2 | 3 | 4 }) {
   const m = useMetrics();
@@ -39,7 +65,9 @@ export default function Usps({ n }: { n: 1 | 2 | 3 | 4 }) {
           {IDEAS.map((x, i) => <Link key={x.to} to={`/console/${x.to}`} aria-current={i + 1 === n ? 'page' : undefined} className={i + 1 === n ? 'is-on' : ''}><b>{i + 1}</b>{x.name}</Link>)}
         </nav>
       </header>
+      <KeyStats n={n} m={m} />
       <Usp n={n} name={idea.name} tag={idea.tag} problem={idea.problem} how={idea.how}><Demo m={m} /></Usp>
+      <aside className="takeaway"><span className="label">What to take away</span><p>{TAKE[n - 1]}</p></aside>
       <footer className="pg-foot">Next idea: <Link to={`/console/${next.to}`}>{next.name} →</Link> · or see all four on one timeline in the <Link to="/console/live">live console</Link>.</footer>
     </div>
   );
@@ -179,11 +207,18 @@ function SignerDemo({ m }: { m: Metrics | null }) {
         <div className="finding"><b>Honest finding.</b> The exact attack group also signed <b>{NUM.format(s.attack_quorum_seen_in_normal)}</b> normal withdrawals ({(s.attack_quorum_share * 100).toFixed(1)}%). So <b>who signed was not unusual</b>. The signatures were real and the signers ordinary, which is exactly why checks that trust signatures stayed quiet.</div>
       </> : <>
         <p className="lede">Every withdrawal has an ID counted up by Ronin's own chain. Normal ones were between <b>{NUM.format(s.normal_id_min)}</b> and <b>{NUM.format(s.normal_id_max)}</b>.</p>
-        <div className="idaxis">
-          <div className="idband" style={{ left: pos(s.normal_id_min), width: `calc(${pos(s.normal_id_max)} - ${pos(s.normal_id_min)})` }}><span>normal IDs</span></div>
-          <div className="idmark" style={{ left: pos(s.attack_ids[0]) }}><span>attack: {NUM.format(s.attack_ids[0])} and {NUM.format(s.attack_ids[1])}</span></div>
-          <span className="idtick" style={{ left: '0%' }}>1,000,000</span><span className="idtick" style={{ left: '100%' }}>2,050,000</span>
+        <div className="idcards">
+          <div><span>Last ID Ronin ever issued</span><b>{NUM.format(s.normal_id_max)}</b></div>
+          <div className="idcards--gap"><span>IDs that were never issued</span><b>{NUM.format(gap)}</b></div>
+          <div className="idcards--bad"><span>ID the attacker used</span><b>{NUM.format(s.attack_ids[0])}</b></div>
         </div>
+        <div className="idruler" role="img" aria-label="Ruler of withdrawal IDs: normal ones, a huge empty gap, then the attack IDs">
+          <div className="idruler-normal" style={{ width: pos(s.normal_id_max) }}><span>real IDs</span></div>
+          <div className="idruler-gap"><span>{NUM.format(gap)} numbers Ronin never created</span></div>
+          <div className="idruler-atk" style={{ left: pos(s.attack_ids[0]) }}><span>attack</span></div>
+          <span className="idtick" style={{ left: '0%' }}>{NUM.format(lo)}</span><span className="idtick" style={{ left: '100%' }}>{NUM.format(hi)}</span>
+        </div>
+        <p className="lede">Think of withdrawal IDs like cheque numbers. Real ones were counted up one by one, so a new one should be the next number. The attacker's was nearly a million numbers ahead.</p>
         <div className="finding"><b>The real signal.</b> The attack's IDs were about <b>{NUM.format(gap)}</b> past the last ID ever issued, numbers Ronin never created. Our signer model scored the two attack withdrawals at <b>p = {r.auth_attack_p?.join(' and ')}</b>; a normal withdrawal scores around <b>{r.auth_heldout_median_p}</b> (smaller = stranger).</div>
       </>}
     </div>

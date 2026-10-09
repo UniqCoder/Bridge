@@ -166,3 +166,27 @@
 
 .axis { display: flex; justify-content: space-between; font: 11px var(--mono); color: var(--text-3); margin-top: -6px; }
 .reads b { font-size: 18px; }
+
+/* key facts strip + takeaway + ID ruler */
+.keystats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.keystats > div { display: grid; gap: 6px; padding: 18px 22px; background: var(--panel); }
+.keystats b { font: 600 clamp(26px, 3.4vw, 44px)/1 var(--mono); }
+.keystats span { color: var(--text-2); font-size: 14px; }
+.ks--ok b { color: var(--verified); } .ks--bad b { color: var(--violation); } .ks--warn b { color: var(--pending); }
+.takeaway { display: grid; gap: 8px; padding: 22px 26px; background: var(--panel); border-left: 3px solid var(--verified); }
+.takeaway p { margin: 0; font-size: clamp(16px, 1.6vw, 20px); line-height: 1.55; max-width: 90ch; }
+.idcards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.idcards > div { display: grid; gap: 4px; padding: 14px 16px; background: var(--bg-raise); border: 1px solid var(--line); }
+.idcards span { color: var(--text-2); font-size: 13px; } .idcards b { font: 600 clamp(20px, 2.4vw, 30px) var(--mono); }
+.idcards--gap b { color: var(--pending); } .idcards--bad { border-color: var(--violation) !important; } .idcards--bad b { color: var(--violation); }
+.idruler { position: relative; height: 84px; margin: 6px 0 22px; display: flex; align-items: stretch; background: var(--bg-raise); border: 1px solid var(--line); }
+.idruler-normal { background: var(--verified-ink); border-right: 3px solid var(--verified); min-width: 64px; display: grid; align-items: end; padding: 8px 10px; }
+.idruler-normal span { font: 11px var(--mono); color: var(--verified); }
+.idruler-gap { flex: 1; background: var(--hatch); display: grid; place-items: center; }
+.idruler-gap span { background: var(--bg); padding: 4px 12px; font: 600 12px var(--mono); color: var(--pending); }
+.idruler-atk { position: absolute; top: -10px; bottom: -10px; width: 4px; background: var(--violation); box-shadow: 0 0 18px var(--violation); }
+.idruler-atk span { position: absolute; top: -20px; right: 8px; font: 600 12px var(--mono); color: var(--violation); }
+.idruler .idtick { position: absolute; bottom: -20px; font: 11px var(--mono); color: var(--text-3); transform: translateX(-50%); }
+.idruler .idtick:last-child { transform: translateX(-100%); }
+@media (max-width: 700px) { .keystats, .idcards { grid-template-columns: minmax(0, 1fr); } }
+.idruler .idtick:first-of-type { transform: none; }
