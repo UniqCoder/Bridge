@@ -121,9 +121,9 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6mm 0; }
 <p><strong>The problem it solves:</strong> monitoring tools fire alerts from fixed thresholds ("more than $1M", "3× normal volume"). Nobody can say how many of those alerts are false, so teams get alert fatigue and miss the real one.</p>
 <p><strong>What we do, in plain words:</strong></p>
 <ol>
-<li>Each signal gives a <strong>p-value</strong>: "how surprising is this compared with normal traffic?" It is calibrated on real normal history (<em>conformal p-value</em>).</li>
-<li>We turn it into an <strong>e-value</strong> (a betting score) and pass it through <strong>e-LOND</strong>, a modern statistical method that keeps the expected share of false alerts <strong>at or below 5%</strong>, even when signals are correlated.</li>
-<li>A live <strong>budget meter</strong> shows how much of that 5% has been spent.</li>
+<li>Each signal gives a <strong>p-value</strong>: "how surprising is this compared with normal traffic?" It is calibrated against the <strong>latest 2,000 releases the rule found backed</strong> (<em>rolling conformal p-value</em>), so it follows slow changes in traffic, and an attacker's unbacked releases can never pollute "normal".</li>
+<li>Each p-value becomes an <strong>e-value</strong> (a betting score against "everything is normal"). The signals are combined by <strong>averaging their e-values</strong>, which stays valid however strongly the signals are correlated.</li>
+<li>An <strong>e-detector (e-CUSUM)</strong> accumulates the evidence over the stream. It guarantees that under normal traffic there is, on average, <strong>at most one false alarm per 1,000 releases</strong>, and it never "runs out of budget" on long streams. A live <strong>budget meter</strong> shows the evidence building towards the alarm line.</li>
 <li>Two levels of alert:<ul>
 <li><strong>Suspicious</strong> (risk up to 69): statistics say it's unusual. Advice only.</li>
 <li><strong>Exploit</strong> (risk 70–100): also requires the <strong>conservation rule to break</strong>, with an evidence bundle anyone can re-verify in their browser.</li>
@@ -136,10 +136,10 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6mm 0; }
 <p><strong>What we do:</strong></p>
 <ol>
 <li><strong>Fingerprint</strong> every withdrawal (token, amount range, reused message id, batch shape, with the recipient address masked) and group near-identical ones with <strong>MinHash-LSH</strong>. That gives copycat clusters.</li>
-<li>Score sudden bursts of new token→recipient links with <strong>MIDAS-R</strong>, a streaming graph burst detector.</li>
+<li>Score bursts of the <strong>same message being released again and again</strong> with <strong>MIDAS-R</strong>, a streaming graph burst detector, plus a <strong>volume-spike</strong> score (releases in the last 10 minutes vs the 7-day rate).</li>
 <li>Fit a <strong>Hawkes process</strong>, a model where each event can trigger more events, as in epidemics. Its <strong>branching ratio n̂</strong> is the attack's "reproduction number":<ul>
 <li><strong>n̂ &lt; 1:</strong> dying out.</li>
-<li><strong>n̂ &gt; 1:</strong> self-sustaining swarm. Hold the route now.</li>
+<li><strong>n̂ near or above 1:</strong> self-sustaining swarm. Hold the route now. (Measured on Nomad: <strong>n̂ = 0.98</strong>, near-critical.)</li>
 </ul>
 </li>
 </ol>
@@ -300,9 +300,9 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6mm 0; }
 </tr>
 <tr>
 <td><strong>A4</strong></td>
-<td><strong>MIDAS-R</strong></td>
-<td>Spots sudden bursts of new links in a streaming graph, using tiny fixed memory</td>
-<td>Burst score (USP 2)</td>
+<td><strong>MIDAS-R</strong> + volume spike</td>
+<td>Spots the same message being released repeatedly in a short time (fixed-memory sketch); a separate score compares the last 10 minutes with the 7-day rate</td>
+<td>Burst and volume-spike scores (USP 2)</td>
 </tr>
 <tr>
 <td><strong>A5</strong></td>
@@ -312,8 +312,8 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6mm 0; }
 </tr>
 <tr>
 <td><strong>A6</strong></td>
-<td><strong>Conformal p-values → e-values → e-LOND</strong></td>
-<td>Turns any score into a calibrated "how surprising" number and keeps the share of false alerts at or below 5% over the whole stream</td>
+<td><strong>Rolling conformal p-values → averaged e-values → e-CUSUM</strong></td>
+<td>Turns any score into a calibrated "how surprising" number, combines signals safely, and limits false alarms to on average at most one per 1,000 normal releases</td>
 <td>Accusation Budget (USP 1)</td>
 </tr>
 </tbody>
@@ -323,7 +323,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6mm 0; }
 <h2 id="9-how-we-avoid-false-accusations">9. How we avoid false accusations</h2>
 <ol>
 <li><strong>Rules decide, signals advise.</strong> Only a broken conservation rule with evidence can produce "exploit". Statistics and ML can only produce "suspicious".</li>
-<li><strong>Measured error rate.</strong> e-LOND controls the false-alert share; we also <strong>measure</strong> it on held-out normal days and show the real number.</li>
+<li><strong>Measured error rate.</strong> e-CUSUM limits false alarms; we also <strong>measure</strong> them on held-out normal days the models never saw, and show the real number.</li>
 <li><strong>"Unknown" is a valid answer.</strong> If one chain's data is late or missing, the status is <code>unknown</code>, never <code>violation</code>.</li>
 <li><strong>Only final data counts.</strong> Unconfirmed blocks don't enter the ledger, so reorganisations can't create fake gaps.</li>
 <li><strong>Models abstain on new routes.</strong> Without enough normal history, a model says nothing instead of guessing.</li>
@@ -344,7 +344,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6mm 0; }
 </tr>
 <tr>
 <td>Drain slowly over days</td>
-<td>The ledger gap only grows; e-LOND keeps watching over time</td>
+<td>The ledger gap only grows; e-CUSUM never runs out of budget on long streams</td>
 </tr>
 <tr>
 <td>Use a fresh address for every withdrawal</td>
@@ -410,6 +410,56 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6mm 0; }
 <li>Money that left before the alert, versus after.</li>
 <li>False alerts per normal day, ours against common baselines.</li>
 <li>"Money that a hold at the first alert would have kept in the bridge" (counterfactual).</li>
+</ul>
+<p><strong>Measured results</strong> (<code>python -m bridgewitness.selfcheck</code>: 15/15 golden checks pass):</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Nomad 2022</th>
+<th>Ronin 2022</th>
+<th>Simulated</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Attack releases labelled "exploit"</td>
+<td><strong>382 / 382</strong></td>
+<td><strong>2 / 2</strong></td>
+<td><strong>30 / 30</strong></td>
+</tr>
+<tr>
+<td>Normal releases ever labelled "exploit"</td>
+<td><strong>0</strong> of 4,482</td>
+<td><strong>0</strong> of 22,830</td>
+<td><strong>0</strong> (controls clean)</td>
+</tr>
+<tr>
+<td>Statistical false alarms on held-out normal days</td>
+<td>0 / 1,826 (31.9 days)</td>
+<td>4 / 6,316 (28.6 days)</td>
+<td>3 / 2,126</td>
+</tr>
+<tr>
+<td>Statistics alone (rule off) on the attack</td>
+<td>179 / 382, from the first release</td>
+<td>0 / 2 (rule catches it)</td>
+<td>12 / 30</td>
+</tr>
+<tr>
+<td>Exploit type on attack releases</td>
+<td>copycat swarm 324 · replay 53 · unbacked 5</td>
+<td>key compromise 2</td>
+<td>6/6 scenarios typed correctly (swarm: 19 of 25 releases typed copycat; its first ones look like replays until the cluster forms)</td>
+</tr>
+</tbody>
+</table>
+<p>Scorecard against common methods on the same data:</p>
+<ul>
+<li><strong>Nomad:</strong> whale threshold 43/382 with 11 false alerts; volume z-score 357/382 with 41; message-id join 41/382; <strong>BridgeWitness 382/382 with 0</strong>.</li>
+<li><strong>Ronin:</strong> whale 2/2 with 21 false alerts; z-score 1/2 with 78; id join 2/2 with 0; <strong>BridgeWitness 2/2 with 0</strong>.</li>
+<li><strong>ML1</strong> delay windows: 98.8% test coverage (target 99%).</li>
+<li><strong>ML2</strong> scores the real Ronin attacks at p = 0.012 and 0.024 (normal median 0.42).</li>
 </ul>
 <p><strong>Real stakes:</strong> Nomad's copycat swarm took 2.5 hours. Detecting it as spreading early, and holding the route, protects most of what left later.</p>
 <h2 id="12-why-we-stand-out">12. Why we stand out</h2>
@@ -477,7 +527,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6mm 0; }
 </table>
 <h2 id="13-technical-depth">13. Technical depth</h2>
 <ul>
-<li><strong>Statistics:</strong> conformal prediction (distribution-free guarantees), e-values, online FDR under arbitrary dependence (e-LOND).</li>
+<li><strong>Statistics:</strong> conformal prediction (distribution-free guarantees) with a rolling window, e-values combined under arbitrary dependence, sequential change detection with e-detectors (e-CUSUM).</li>
 <li><strong>Streaming algorithms:</strong> count-min sketches (MIDAS-R), locality-sensitive hashing (MinHash), point processes (Hawkes MLE).</li>
 <li><strong>Optimisation:</strong> Hungarian algorithm for optimal assignment.</li>
 <li><strong>Cryptography / blockchain:</strong> ABI decoding of raw calldata, EIP-191 signed-message hashing, secp256k1 public-key recovery (<code>ecrecover</code>), validator-set checks, finality handling.</li>
@@ -620,7 +670,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6mm 0; }
 <li><strong>No PyTorch, no <code>shap</code> library:</strong> reasons use LightGBM's built-in TreeSHAP.</li>
 <li>Replays are <strong>pre-computed</strong> into compact files and streamed. We don't re-run heavy joins per visitor.</li>
 <li>One worker process; data kept as NumPy arrays and only the needed columns.</li>
-<li>Expected memory around 250–300 MB (Python + NumPy + pandas + SciPy + scikit-learn + LightGBM). Checked with <code>docker stats</code> before deploying.</li>
+<li><strong>Measured:</strong> the API container uses <strong>about 40 MB</strong> of RAM (<code>docker stats</code>, 512 MB cap), with a 263 MB image. The ML stack runs only in the offline build; the server needs just FastAPI and requests.</li>
 <li>Free Render services sleep when idle. The web app shows a "waking the server" state, and the replays also exist as static files so the demo never breaks.</li>
 </ul>
 <p><strong>CORS:</strong> the API allows only the Vercel domain. There are no secrets in the browser.</p>
@@ -683,7 +733,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6mm 0; }
 <li>Results are reported <strong>per incident</strong>, not as one global accuracy figure, because there are only a few real attacks.</li>
 <li>Dataset labels come from XChainWatcher's rules; we say so.</li>
 <li>Simulated data is always labelled as simulated.</li>
-<li>The 5% false-alarm guarantee is stated with its assumptions, next to the <strong>measured</strong> rate.</li>
+<li>The false-alarm guarantee (on average ≥ 1,000 normal releases per false alarm) is stated with its assumptions, next to the <strong>measured</strong> rate.</li>
 <li>Ronin: $624M is the public estimate; the dataset value is $565.4M. We label both.</li>
 <li>If Signer DNA finds the attack quorum was common, we show that honestly and rely on the withdrawal-ID and value signals.</li>
 </ul>
@@ -717,8 +767,12 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6mm 0; }
 <td>Calibrated p-values for every signal</td>
 </tr>
 <tr>
-<td><em>Online multiple testing with e-values</em> (Xu &amp; Ramdas, AISTATS 2024)</td>
-<td>e-LOND false-alarm control</td>
+<td><em>E-detectors: a nonparametric framework for sequential change detection</em> (Shin, Ramdas &amp; Rinaldo, arXiv 2203.03532)</td>
+<td>e-CUSUM alarm with a false-alarm guarantee</td>
+</tr>
+<tr>
+<td><em>E-values: calibration, combination and applications</em> (Vovk &amp; Wang, Annals of Statistics 2021)</td>
+<td>Averaging e-values across correlated signals</td>
 </tr>
 <tr>
 <td><em>MIDAS: Microcluster-Based Detector of Anomalies in Edge Streams</em> (Bhatia et al., AAAI 2020)</td>

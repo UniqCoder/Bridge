@@ -71,9 +71,9 @@ BridgeWitness watches both sides of a bridge at once. For every coin released on
 **The problem it solves:** monitoring tools fire alerts from fixed thresholds ("more than $1M", "3× normal volume"). Nobody can say how many of those alerts are false, so teams get alert fatigue and miss the real one.
 
 **What we do, in plain words:**
-1. Each signal gives a **p-value**: "how surprising is this compared with normal traffic?" It is calibrated on real normal history (*conformal p-value*).
-2. We turn it into an **e-value** (a betting score) and pass it through **e-LOND**, a modern statistical method that keeps the expected share of false alerts **at or below 5%**, even when signals are correlated.
-3. A live **budget meter** shows how much of that 5% has been spent.
+1. Each signal gives a **p-value**: "how surprising is this compared with normal traffic?" It is calibrated against the **latest 2,000 releases the rule found backed** (*rolling conformal p-value*), so it follows slow changes in traffic, and an attacker's unbacked releases can never pollute "normal".
+2. Each p-value becomes an **e-value** (a betting score against "everything is normal"). The signals are combined by **averaging their e-values**, which stays valid however strongly the signals are correlated.
+3. An **e-detector (e-CUSUM)** accumulates the evidence over the stream. It guarantees that under normal traffic there is, on average, **at most one false alarm per 1,000 releases**, and it never "runs out of budget" on long streams. A live **budget meter** shows the evidence building towards the alarm line.
 4. Two levels of alert:
     - **Suspicious** (risk up to 69): statistics say it's unusual. Advice only.
     - **Exploit** (risk 70–100): also requires the **conservation rule to break**, with an evidence bundle anyone can re-verify in their browser.
@@ -86,10 +86,10 @@ BridgeWitness watches both sides of a bridge at once. For every coin released on
 
 **What we do:**
 1. **Fingerprint** every withdrawal (token, amount range, reused message id, batch shape, with the recipient address masked) and group near-identical ones with **MinHash-LSH**. That gives copycat clusters.
-2. Score sudden bursts of new token→recipient links with **MIDAS-R**, a streaming graph burst detector.
+2. Score bursts of the **same message being released again and again** with **MIDAS-R**, a streaming graph burst detector, plus a **volume-spike** score (releases in the last 10 minutes vs the 7-day rate).
 3. Fit a **Hawkes process**, a model where each event can trigger more events, as in epidemics. Its **branching ratio n̂** is the attack's "reproduction number":
     - **n̂ < 1:** dying out.
-    - **n̂ > 1:** self-sustaining swarm. Hold the route now.
+    - **n̂ near or above 1:** self-sustaining swarm. Hold the route now. (Measured on Nomad: **n̂ = 0.98**, near-critical.)
 
 **Why it's unique:** nobody measures how fast an exploit spreads. This turns "volume spike" into "this attack is going viral, act now".
 
@@ -170,9 +170,9 @@ Notes:
 | **A1** | **Conservation ledger** (double-entry invariant) | Keeps a running total per token: coins released must never exceed coins locked. If they do, something was released without backing | The only thing allowed to say "exploit" |
 | **A2** | **Hungarian matching** | Finds the best one-to-one pairing of deposits and withdrawals, so reused ids can't fool it | Mismatched pairs (USP 4) |
 | **A3** | **MinHash-LSH** | Quickly finds near-identical transactions among thousands, like spotting copy-pasted homework | Copycat clusters (USP 2) |
-| **A4** | **MIDAS-R** | Spots sudden bursts of new links in a streaming graph, using tiny fixed memory | Burst score (USP 2) |
+| **A4** | **MIDAS-R** + volume spike | Spots the same message being released repeatedly in a short time (fixed-memory sketch); a separate score compares the last 10 minutes with the 7-day rate | Burst and volume-spike scores (USP 2) |
 | **A5** | **Hawkes process** (self-exciting) | Measures whether events are triggering more events; the branching ratio says whether the attack is spreading | Exploit R₀ (USP 2) |
-| **A6** | **Conformal p-values → e-values → e-LOND** | Turns any score into a calibrated "how surprising" number and keeps the share of false alerts at or below 5% over the whole stream | Accusation Budget (USP 1) |
+| **A6** | **Rolling conformal p-values → averaged e-values → e-CUSUM** | Turns any score into a calibrated "how surprising" number, combines signals safely, and limits false alarms to on average at most one per 1,000 normal releases | Accusation Budget (USP 1) |
 
 **Risk score:** `risk = 100 × (1 − combined p-value)`, capped at **69** unless the conservation rule (A1) breaks. So an alert above 69 always has hard evidence behind it.
 
@@ -181,7 +181,7 @@ Notes:
 ## 9. How we avoid false accusations
 
 1. **Rules decide, signals advise.** Only a broken conservation rule with evidence can produce "exploit". Statistics and ML can only produce "suspicious".
-2. **Measured error rate.** e-LOND controls the false-alert share; we also **measure** it on held-out normal days and show the real number.
+2. **Measured error rate.** e-CUSUM limits false alarms; we also **measure** them on held-out normal days the models never saw, and show the real number.
 3. **"Unknown" is a valid answer.** If one chain's data is late or missing, the status is `unknown`, never `violation`.
 4. **Only final data counts.** Unconfirmed blocks don't enter the ledger, so reorganisations can't create fake gaps.
 5. **Models abstain on new routes.** Without enough normal history, a model says nothing instead of guessing.
@@ -192,7 +192,7 @@ Notes:
 | How an attacker might try to hide | What catches it |
 |---|---|
 | Split the theft into many small withdrawals below thresholds | Conservation ledger (sums everything) + Contagion Radar |
-| Drain slowly over days | The ledger gap only grows; e-LOND keeps watching over time |
+| Drain slowly over days | The ledger gap only grows; e-CUSUM never runs out of budget on long streams |
 | Use a fresh address for every withdrawal | Fingerprints ignore the address; they match the transaction's shape |
 | Use stolen keys at normal times | Signer DNA scores *who signed together*, not just *when* |
 | Reuse a real, legitimate message id (as in Nomad) | Pairing uses amount, recipient and time, not only the id |
@@ -218,6 +218,22 @@ Notes:
 - False alerts per normal day, ours against common baselines.
 - "Money that a hold at the first alert would have kept in the bridge" (counterfactual).
 
+**Measured results** (`python -m bridgewitness.selfcheck`: 15/15 golden checks pass):
+
+| | Nomad 2022 | Ronin 2022 | Simulated |
+|---|---|---|---|
+| Attack releases labelled "exploit" | **382 / 382** | **2 / 2** | **30 / 30** |
+| Normal releases ever labelled "exploit" | **0** of 4,482 | **0** of 22,830 | **0** (controls clean) |
+| Statistical false alarms on held-out normal days | 0 / 1,826 (31.9 days) | 4 / 6,316 (28.6 days) | 3 / 2,126 |
+| Statistics alone (rule off) on the attack | 179 / 382, from the first release | 0 / 2 (rule catches it) | 12 / 30 |
+| Exploit type on attack releases | copycat swarm 324 · replay 53 · unbacked 5 | key compromise 2 | 6/6 scenarios typed correctly (swarm: 19 of 25 releases typed copycat; its first ones look like replays until the cluster forms) |
+
+Scorecard against common methods on the same data:
+- **Nomad:** whale threshold 43/382 with 11 false alerts; volume z-score 357/382 with 41; message-id join 41/382; **BridgeWitness 382/382 with 0**.
+- **Ronin:** whale 2/2 with 21 false alerts; z-score 1/2 with 78; id join 2/2 with 0; **BridgeWitness 2/2 with 0**.
+- **ML1** delay windows: 98.8% test coverage (target 99%).
+- **ML2** scores the real Ronin attacks at p = 0.012 and 0.024 (normal median 0.42).
+
 **Real stakes:** Nomad's copycat swarm took 2.5 hours. Detecting it as spreading early, and holding the route, protects most of what left later.
 
 ## 12. Why we stand out
@@ -234,7 +250,7 @@ Notes:
 
 ## 13. Technical depth
 
-- **Statistics:** conformal prediction (distribution-free guarantees), e-values, online FDR under arbitrary dependence (e-LOND).
+- **Statistics:** conformal prediction (distribution-free guarantees) with a rolling window, e-values combined under arbitrary dependence, sequential change detection with e-detectors (e-CUSUM).
 - **Streaming algorithms:** count-min sketches (MIDAS-R), locality-sensitive hashing (MinHash), point processes (Hawkes MLE).
 - **Optimisation:** Hungarian algorithm for optimal assignment.
 - **Cryptography / blockchain:** ABI decoding of raw calldata, EIP-191 signed-message hashing, secp256k1 public-key recovery (`ecrecover`), validator-set checks, finality handling.
@@ -298,7 +314,7 @@ Notes:
 - **No PyTorch, no `shap` library:** reasons use LightGBM's built-in TreeSHAP.
 - Replays are **pre-computed** into compact files and streamed. We don't re-run heavy joins per visitor.
 - One worker process; data kept as NumPy arrays and only the needed columns.
-- Expected memory around 250–300 MB (Python + NumPy + pandas + SciPy + scikit-learn + LightGBM). Checked with `docker stats` before deploying.
+- **Measured:** the API container uses **about 40 MB** of RAM (`docker stats`, 512 MB cap), with a 263 MB image. The ML stack runs only in the offline build; the server needs just FastAPI and requests.
 - Free Render services sleep when idle. The web app shows a "waking the server" state, and the replays also exist as static files so the demo never breaks.
 
 **CORS:** the API allows only the Vercel domain. There are no secrets in the browser.
@@ -335,7 +351,7 @@ Notes:
 - Results are reported **per incident**, not as one global accuracy figure, because there are only a few real attacks.
 - Dataset labels come from XChainWatcher's rules; we say so.
 - Simulated data is always labelled as simulated.
-- The 5% false-alarm guarantee is stated with its assumptions, next to the **measured** rate.
+- The false-alarm guarantee (on average ≥ 1,000 normal releases per false alarm) is stated with its assumptions, next to the **measured** rate.
 - Ronin: $624M is the public estimate; the dataset value is $565.4M. We label both.
 - If Signer DNA finds the attack quorum was common, we show that honestly and rely on the withdrawal-ID and value signals.
 
@@ -348,7 +364,8 @@ Notes:
 | *SoK: Not Quite Water Under the Bridge* (Lee et al., arXiv 2210.16209); *SoK: Cross-Chain Bridging Design Flaws* (Notland et al., arXiv 2403.00405) | Attack taxonomy for exploit types |
 | *Conformalized Quantile Regression* (Romano, Patterson, Candès, NeurIPS 2019) | ML1 guaranteed windows |
 | *Testing for outliers with conformal p-values* (Bates et al., Annals of Statistics 2023) | Calibrated p-values for every signal |
-| *Online multiple testing with e-values* (Xu & Ramdas, AISTATS 2024) | e-LOND false-alarm control |
+| *E-detectors: a nonparametric framework for sequential change detection* (Shin, Ramdas & Rinaldo, arXiv 2203.03532) | e-CUSUM alarm with a false-alarm guarantee |
+| *E-values: calibration, combination and applications* (Vovk & Wang, Annals of Statistics 2021) | Averaging e-values across correlated signals |
 | *MIDAS: Microcluster-Based Detector of Anomalies in Edge Streams* (Bhatia et al., AAAI 2020) | Streaming burst detection |
 | Hawkes (1971), self-exciting point processes | Exploit spread (R₀) |
 | Broder (1997), MinHash | Copycat fingerprints |

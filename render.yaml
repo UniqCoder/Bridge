@@ -1,0 +1,12 @@
+# Render blueprint: BridgeWitness API as a Docker web service (free plan, 512 MB; uses ~40 MB).
+services:
+  - type: web
+    name: bridgewitness-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: BW_ALLOWED_ORIGIN
+        value: https://YOUR-VERCEL-APP.vercel.app   # set to the deployed Vercel URL (comma-separate several)

@@ -65,7 +65,7 @@ function Why({ e }: { e: Ev }) {
         {Object.entries(e.p ?? {}).map(([k, p]) => (
           <tr key={k} className={p != null && p < 0.01 ? 'hot' : ''}><td>{SIG_TEXT[k] ?? k}</td><td className="mono">{fmtP(p)}</td>
             <td><i style={{ width: `${p == null ? 0 : Math.min(100, -Math.log10(Math.max(p, 1e-6)) * 25)}%` }} /></td></tr>))}
-        <tr><td><b>Combined (Cauchy)</b></td><td className="mono"><b>{fmtP(e.p_comb)}</b></td><td /></tr>
+        <tr><td><b>Combined evidence (e-value mean)</b></td><td className="mono"><b>{fmtP(e.p_comb)}</b></td><td /></tr>
       </tbody></table>
       {s && <p className="dim small">
         Cluster {s.cluster_size} · n̂ {s.hawkes_n.toFixed(2)} · id {s.id_reused ? 'reused' : 'fresh'}{s.id_jump > 1000 ? ` · jumped +${s.id_jump.toLocaleString()}` : ''}

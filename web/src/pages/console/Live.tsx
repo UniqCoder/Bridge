@@ -160,6 +160,8 @@ function Scorecard({ data }: { data: Replay }) {
   );
 }
 
+const usdSmall = (v: number) => (v < 10 ? '$' + v.toFixed(2) : usd(v));
+
 function LiveTail() {
   const { live, err } = useLive(true);
   const chain = (id: number) => ({ 1: 'Ethereum', 10: 'Optimism', 56: 'BNB', 137: 'Polygon', 8453: 'Base', 42161: 'Arbitrum', 59144: 'Linea', 324: 'zkSync' } as Record<number, string>)[id] ?? `chain ${id}`;
@@ -174,8 +176,8 @@ function LiveTail() {
         <p className="dim small">Rule: value released on the destination ≤ value locked on the origin (Across' own prices, decimals from its token list, 1% + $1 tolerance). The ML models <b>abstain</b> here: they have no calibration history for these routes, and say so instead of guessing.</p>
         <div style={{ overflowX: 'auto' }}><table className="sc"><thead><tr><th>Verdict</th><th>Route</th><th>Token</th><th>In</th><th>Out</th><th>Fill delay</th><th>Deposit tx</th></tr></thead><tbody>
           {live?.rows.map((r) => <tr key={r.id}><td className={`v-${r.verdict}`}>{r.verdict}</td><td>{chain(r.src)} → {chain(r.dst)}</td><td>{r.symbol ?? '?'}</td>
-            <td className="mono">{r.in_usd == null ? '—' : usd(r.in_usd)}</td><td className="mono">{r.out_usd == null ? '—' : usd(r.out_usd)}</td>
-            <td className="mono">{r.delay_s == null ? '—' : `${r.delay_s}s`}</td><td className="mono dim">{r.deposit_tx?.slice(0, 10)}…</td></tr>)}
+            <td className="mono">{r.in_usd == null ? '—' : usdSmall(r.in_usd)}</td><td className="mono">{r.out_usd == null ? '—' : usdSmall(r.out_usd)}</td>
+            <td className="mono" title="Block timestamps on two chains; ≤0 s means the fill landed in the same second (clock skew).">{r.delay_s == null ? '—' : r.delay_s <= 0 ? '~0s' : `${r.delay_s}s`}</td><td className="mono dim">{r.deposit_tx?.slice(0, 10)}…</td></tr>)}
         </tbody></table></div>
       </div>
     </section>
