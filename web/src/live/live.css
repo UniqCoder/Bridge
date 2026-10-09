@@ -103,3 +103,13 @@
 .m3-tag--vault { border-color: var(--text); color: var(--text); }
 .m3-tag.is-alarm { border-color: var(--violation); color: var(--violation); animation: m3blink 1s steps(2) infinite; }
 @keyframes m3blink { 50% { background: rgb(255 106 61 / 0.18); } }
+.m3 { position: relative; }
+.m3-hud { position: absolute; left: 12px; right: 12px; bottom: 44px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line-2); pointer-events: none; max-width: 640px; }
+.m3-hud > div { display: grid; gap: 2px; padding: 8px 12px; background: rgb(8 9 11 / 0.82); }
+.m3-hud span { font: 600 9.5px var(--mono); letter-spacing: .1em; color: var(--text-3); }
+.m3-hud b { font: 600 clamp(15px, 2vw, 22px) var(--mono); color: var(--text); } .m3-hud b.ok { color: var(--verified); } .m3-hud b.bad { color: var(--violation); }
+.m3-hud i { font: normal 11px var(--sans); color: var(--text-2); }
+.m3-hud.is-breach { border-color: var(--violation); }
+.m3-cap { position: absolute; left: 12px; right: 12px; bottom: 12px; margin: 0; font: 600 12px var(--mono); letter-spacing: .04em; color: var(--verified); pointer-events: none; }
+.m3-cap.is-breach { color: var(--violation); }
+@media (max-width: 640px) { .m3-hud { grid-template-columns: minmax(0, 1fr); bottom: 40px; } .m3-hud i { display: none; } .m3-hud span { font-size: 8.5px; } .m3-cap { font-size: 10.5px; } }

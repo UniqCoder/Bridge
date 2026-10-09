@@ -3,6 +3,7 @@ import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html, OrbitControls, Stars } from '@react-three/drei';
 import { Bloom, ChromaticAberration, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
+import { usd } from '../lib/format';
 import type { Ev, Replay } from './data';
 
 // 3D map of one replay. Left plane: deposits on the source chain. Right plane: payouts on the destination chain.
@@ -232,9 +233,21 @@ function Scene({ data, n, selected, onSelect, spin }: Props) {
 type Props = { data: Replay; n: number; selected: string | null; onSelect: (id: string) => void; spin?: boolean };
 
 export function Map3D(p: Props) {
+  let dep = 0, backed = 0, gap = 0;
+  for (let i = 0; i < p.n; i++) {
+    const e = p.data.events[i], v = e.usd ?? 0;
+    if (e.kind === 'deposit') dep += v; else if (e.status === 'violation') gap += v; else backed += v;
+  }
+  const breach = gap > 0;
   return (
-    <div className="lg-canvas" role="img" aria-label={`3D map of ${p.data.label}: deposits on the left chain, the bridge vault in the middle, payouts on the right chain; copper packets and arcs are payouts with no deposit.`}>
+    <div className="lg-canvas m3" role="img" aria-label={`3D map of ${p.data.label}: deposits on the left chain, the bridge vault in the middle, payouts on the right chain; copper packets and arcs are payouts with no deposit.`}>
       <Canvas dpr={[1, 1.75]} camera={{ fov: 40, position: [44, 22, 70] }}><Scene {...p} /></Canvas>
+      <div className={`m3-hud ${breach ? 'is-breach' : ''}`} aria-hidden="true">
+        <div><span>MONEY IN</span><b>{usd(dep)}</b><i>locked on the source chain</i></div>
+        <div><span>PAID OUT WITH A DEPOSIT</span><b className="ok">{usd(backed)}</b><i>matched to a real deposit</i></div>
+        <div><span>PAID OUT WITH NO DEPOSIT</span><b className={breach ? 'bad' : ''}>{usd(gap)}</b><i>{breach ? 'this is the hack' : 'none so far'}</i></div>
+      </div>
+      <p className={`m3-cap ${breach ? 'is-breach' : ''}`}>{breach ? 'BREACH: the vault is paying out coins that were never deposited.' : 'Normal: every payout on the right matches a deposit on the left.'}</p>
     </div>
   );
 }
