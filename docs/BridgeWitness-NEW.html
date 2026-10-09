@@ -200,8 +200,8 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6mm 0; }
 <td>"If the route had been held at the first alert, $X would not have left", computed from the data</td>
 </tr>
 <tr>
-<td><strong>Verify in browser</strong></td>
-<td>The evidence for an exploit alert is re-checked in the user's own browser, so they don't have to trust our server</td>
+<td><strong>Check it yourself</strong></td>
+<td>For any payout the page shows what was searched in the full deposit history and what was found, with explorer links, and lets you try to cheat it</td>
 </tr>
 <tr>
 <td><strong>Live tail</strong></td>
@@ -214,16 +214,38 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6mm 0; }
 </tbody>
 </table>
 <h2 id="6-how-someone-uses-it-user-flow">6. How someone uses it (user flow)</h2>
-<p>A judge or analyst understands the product in about 60 seconds:</p>
-<ol>
-<li><strong>Pick a feed:</strong> Nomad 2022, Ronin 2022, simulated attack, or live.</li>
-<li><strong>Press play:</strong> the flow graph fills in real time; normal pairs turn green.</li>
-<li><strong>The alert fires:</strong> a card slides in showing risk, exploit type, probability and the closest past incident.</li>
-<li><strong>Click "Why":</strong> plain-English reasons, the signals with their scores, and the exact culprit transactions.</li>
-<li><strong>Click "Verify":</strong> the evidence is re-checked in the browser.</li>
-<li><strong>Click "What if we held here?":</strong> money that would have been saved.</li>
-<li><strong>Scorecard tab:</strong> how BridgeWitness compares with the usual methods on the same data.</li>
-</ol>
+<p>The website has four pages plus a landing page, all in plain words:</p>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>What the visitor does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Landing</strong></td>
+<td>Reads the problem in one screen, sees the proof numbers (384/384 real attack payouts caught, 0 honest payouts wrongly accused), and jumps into a replay</td>
+</tr>
+<tr>
+<td><strong>Live console</strong></td>
+<td>Picks a feed (Nomad hack, Ronin hack, practice attacks, or a real bridge right now) and presses Play. The graph fills as payouts are checked, the replay <strong>stops at the first alert</strong>, and the alert card opens with the risk, the attack type, the closest past hack, and three tabs: <strong>Why</strong>, <strong>Check it</strong>, <strong>If we had stopped it</strong></td>
+</tr>
+<tr>
+<td><strong>Our four ideas</strong></td>
+<td>Tries each of the four ideas on real data: pick a release and watch the verdict form; drag through the Nomad swarm; see who really signed Ronin's withdrawals; compare ID-matching with ledger pairing</td>
+</tr>
+<tr>
+<td><strong>Check it yourself</strong></td>
+<td>Picks any flagged or honest payout and sees what we searched for and found in the full deposit history, with block-explorer links. A <strong>"Try to cheat it"</strong> box changes a backed payout by one tiny unit and the check fails in the browser</td>
+</tr>
+<tr>
+<td><strong>Results</strong></td>
+<td>Reads every measured number: caught vs wrongly accused, comparison with common methods, money that would have stayed in the bridge, the three models in plain words, and what we do not claim</td>
+</tr>
+</tbody>
+</table>
+<p>A judge understands the product in about 60 seconds: Landing, then Play on the Nomad replay, then the alert, then Check it yourself.</p>
 <hr />
 <h2 id="7-the-three-ml-models">7. The three ML models</h2>
 <table>

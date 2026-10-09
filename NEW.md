@@ -133,21 +133,23 @@ BridgeWitness watches both sides of a bridge at once. For every coin released on
 | **Live Flow Graph** | Moving network of chains → bridge → tokens → recipients; colours show the verdict; copycat clusters are outlined; validators ring the bridge |
 | **Baseline scorecard** | The same replay run through the common methods (whale threshold, volume z-score, id matching) next to ours: time to first alert, money lost before the alert, false alerts per day |
 | **What-if (counterfactual)** | "If the route had been held at the first alert, $X would not have left", computed from the data |
-| **Verify in browser** | The evidence for an exploit alert is re-checked in the user's own browser, so they don't have to trust our server |
+| **Check it yourself** | For any payout the page shows what was searched in the full deposit history and what was found, with explorer links, and lets you try to cheat it |
 | **Live tail** | Real, current Across bridge traffic through the same pipeline, showing normal pairs being confirmed with no false alarms |
 | **Lifecycle states** | pending → consistent / overdue / mismatched; `unknown` when data is missing, never a false accusation |
 
 ## 6. How someone uses it (user flow)
 
-A judge or analyst understands the product in about 60 seconds:
+The website has four pages plus a landing page, all in plain words:
 
-1. **Pick a feed:** Nomad 2022, Ronin 2022, simulated attack, or live.
-2. **Press play:** the flow graph fills in real time; normal pairs turn green.
-3. **The alert fires:** a card slides in showing risk, exploit type, probability and the closest past incident.
-4. **Click "Why":** plain-English reasons, the signals with their scores, and the exact culprit transactions.
-5. **Click "Verify":** the evidence is re-checked in the browser.
-6. **Click "What if we held here?":** money that would have been saved.
-7. **Scorecard tab:** how BridgeWitness compares with the usual methods on the same data.
+| Page | What the visitor does |
+|---|---|
+| **Landing** | Reads the problem in one screen, sees the proof numbers (384/384 real attack payouts caught, 0 honest payouts wrongly accused), and jumps into a replay |
+| **Live console** | Picks a feed (Nomad hack, Ronin hack, practice attacks, or a real bridge right now) and presses Play. The graph fills as payouts are checked, the replay **stops at the first alert**, and the alert card opens with the risk, the attack type, the closest past hack, and three tabs: **Why**, **Check it**, **If we had stopped it** |
+| **Our four ideas** | Tries each of the four ideas on real data: pick a release and watch the verdict form; drag through the Nomad swarm; see who really signed Ronin's withdrawals; compare ID-matching with ledger pairing |
+| **Check it yourself** | Picks any flagged or honest payout and sees what we searched for and found in the full deposit history, with block-explorer links. A **"Try to cheat it"** box changes a backed payout by one tiny unit and the check fails in the browser |
+| **Results** | Reads every measured number: caught vs wrongly accused, comparison with common methods, money that would have stayed in the bridge, the three models in plain words, and what we do not claim |
+
+A judge understands the product in about 60 seconds: Landing, then Play on the Nomad replay, then the alert, then Check it yourself.
 
 ---
 
