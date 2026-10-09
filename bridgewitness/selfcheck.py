@@ -1,0 +1,50 @@
+"""Golden checks on the built artifacts. Run after `python -m bridgewitness.pipeline`.
+
+    python -m bridgewitness.selfcheck
+"""
+import json
+from pathlib import Path
+
+import pandas as pd
+
+from .signers import ATTACK_SIGNERS
+
+ART = Path(__file__).parent / "artifacts"
+
+
+def main():
+    m = json.loads((ART / "metrics.json").read_text(encoding="utf-8"))
+    F = m["feeds"]
+    checks = {
+        "ML1 conformal coverage >= 0.98 on test": m["ml1_delay_cqr"]["test_coverage"] >= 0.98,
+        "Nomad: 382/382 attack releases are exploits": F["nomad"]["attack_flagged_exploit"] == 382,
+        "Ronin: 2/2 attack releases are exploits": F["ronin"]["attack_flagged_exploit"] == 2,
+        "Simulated: 30/30 attack releases are exploits": F["simulated"]["attack_flagged_exploit"] == 30,
+        "No 'exploit' label on any normal or control release": all(F[f]["normal_false_exploit"] == 0 for f in F),
+        "e-CUSUM held-out false-alarm rate <= 1/1000 per release (+ slack)": all(
+            (F[f]["heldout_false_alarm_rate"] or 0) <= 2e-3 for f in F),
+        "Ronin attacks typed key_compromise": F["ronin"]["types_on_attack"].get("key_compromise") == 2,
+        "Nomad mostly typed copycat swarm / replay": F["nomad"]["types_on_attack"].get("copycat_swarm", 0)
+            + F["nomad"]["types_on_attack"].get("message_replay", 0) >= 0.9 * 382,
+        "Nomad copycat cluster >= 250 and Hawkes n near-critical (> 0.9)":
+            F["nomad"]["max_cluster"] >= 250 and F["nomad"]["max_hawkes_n"] > 0.9,
+        "Simulated controls raise nothing": all(not s["types"] for s in F["simulated"]["scenarios"].values()
+                                                 if s["truth"] == "control"),
+    }
+    rep = json.loads((ART / "replay_nomad.json").read_text(encoding="utf-8"))
+    first = min(e["ts"] for e in rep["events"] if e.get("level") == "exploit")
+    checks["Nomad first exploit at 2022-08-01 21:32:31 UTC"] = str(pd.to_datetime(first, unit="s")) == "2022-08-01 21:32:31"
+    checks["Nomad: 0 of 193 normal 1-2 Aug releases flagged"] = not any(
+        e.get("level") == "exploit" for e in rep["events"] if e["truth"] == "normal")
+    sig = pd.read_parquet(Path(__file__).parent / "data" / "signers.parquet")
+    att = sig[sig.is_attack]
+    checks["Ronin attack signers = the 5 verified validators"] = all(
+        sorted(s.split(",")) == ATTACK_SIGNERS for s in att.signers)
+    for k, ok in checks.items():
+        print("PASS" if ok else "FAIL", k)
+    assert all(checks.values()), "selfcheck failed"
+    print(f"selfcheck: {len(checks)}/{len(checks)} passed")
+
+
+if __name__ == "__main__":
+    main()
