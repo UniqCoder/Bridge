@@ -225,13 +225,13 @@ function Situation({ data, v, src, started }: { data: Replay; v: NonNullable<Ret
       <div className="ws-sit-main">
         <p className="ws-sit-k">{sim ? 'Synthetic replay' : 'Historical replay'} · {data.label} · {src} → {data.dst}</p>
         {bad ? <>
-          <h1 className="ws-sit-h"><span className="bad mono">{usd(v.unbacked)}</span> paid out without a valid deposit behind it</h1>
+          <h2 className="ws-sit-h"><span className="bad mono">{usd(v.unbacked)}</span> paid out without a valid deposit behind it</h2>
           <p className="ws-sit-sub"><b>{bad}</b> payout{bad === 1 ? '' : 's'} broke the conservation rule since {utc(first.ts).slice(11, 16)} UTC. Each was flagged as it executed{sus ? <>, plus <b>{sus}</b> suspicious (advisory only)</> : null}.</p>
         </> : started ? <>
-          <h1 className="ws-sit-h"><span className="ok mono">{v.withdrawals.length.toLocaleString()}</span> payouts checked. {sus ? <>{sus} suspicious, none break the rule.</> : 'Every one is backed by a deposit.'}</h1>
+          <h2 className="ws-sit-h"><span className="ok mono">{v.withdrawals.length.toLocaleString()}</span> payouts checked. {sus ? <>{sus} suspicious, none break the rule.</> : 'Every one is backed by a deposit.'}</h2>
           <p className="ws-sit-sub">Each payout on {data.dst} is paired with a deposit on {src} by token, amount and recipient. A payout with no valid deposit is the only thing allowed to raise an exploit alert.</p>
         </> : <>
-          <h1 className="ws-sit-h">Every payout must be backed by a deposit. BridgeWitness checks each one as it happens.</h1>
+          <h2 className="ws-sit-h">Every payout must be backed by a deposit. BridgeWitness checks each one as it happens.</h2>
           <p className="ws-sit-sub">Signatures can be stolen. Conservation can't. This replay runs the real detection output over {sim ? 'synthetic attacks mixed into recorded traffic' : 'recorded on-chain data'}; it is not live monitoring.</p>
         </>}
       </div>

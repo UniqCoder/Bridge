@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { NextStep } from '../../live/CaseBar';
+import { Ident } from '../../live/CaseFile';
 import { Seg } from './Usps';
 import { RULE_TEXT, SOURCE_CHAIN, TYPE_SHORT, human, txUrl, useReplayData, type Ev, type Replay } from '../../live/data';
 import { duration, usd, utc } from '../../lib/format';
@@ -39,21 +40,16 @@ export default function Evidence() {
       {!data || !e ? (
         <div className="ws-panel ws-msg"><span className="ws-skel" /> Loading…</div>
       ) : (
-        <div className="ws-grid">
+        <div className="ws-grid ws-grid--ev">
           <div className="ws-left">
             <section className="ws-panel">
-              <ol className="ws-alist" style={{ padding: '12px 16px', maxHeight: '640px' }} aria-label="Payouts">
+              <ol className="ws-plist" aria-label="Payouts">
                 {list.map((x) => (
                   <li key={x.id}>
-                    <button
-                      className={`ws-arow ${x.id === e.id ? 'is-sel' : ''}`}
-                      onClick={() => setSel(x.id)}
-                    >
-                      <span className="ws-arisk mono dim">{x.symbol} {human(x.amount, x.decimals, 2)}</span>
-                      <span className="ws-atype">
-                        <small>{utc(x.ts).slice(5, 19)}{x.scenario ? ` · ${x.scenario}` : ''}</small>
-                      </span>
-                      <em className="dim">{x.status === 'violation' ? 'no deposit' : 'backed'}</em>
+                    <button className={`ws-prow${x.id === e.id ? ' is-sel' : ''}`} onClick={() => setSel(x.id)} aria-current={x.id === e.id}>
+                      <i className={x.status === 'violation' ? 'k-bad' : 'k-ok'} aria-hidden />
+                      <span><b className="mono">{x.symbol} {human(x.amount, x.decimals, 2)}</b><small className="mono">{utc(x.ts).slice(5, 19)}{x.scenario ? ` · ${x.scenario}` : ''}</small></span>
+                      <em className={x.status === 'violation' ? 'bad' : 'ok'}>{x.status === 'violation' ? 'not backed' : 'backed'}</em>
                     </button>
                   </li>
                 ))}
@@ -83,9 +79,9 @@ function Detail({ e, feed }: { e: Ev; feed: string }) {
   const src = SOURCE_CHAIN[feed];
   const rel = txUrl(feed, 'withdrawal', e.tx, sim), dep = e.deposit ? txUrl(feed, 'deposit', e.deposit.tx, sim) : null;
   return (
-    <section className="cf" style={{ maxHeight: 'none' }}>
+    <section className={`cf cf--page ${bad ? 'cf--exploit' : 'cf--none'}`}>
       <div className="cf-top">
-        <div className="cf-badge">{bad ? 'EXPLOIT' : 'BACKED'}</div>
+        <div className="cf-badge">{bad ? 'Exploit: conservation rule broken' : 'No alert: payout is backed'}</div>
         <h2 className="cf-title">{e.symbol} {human(e.amount, e.decimals)}</h2>
         <div className="cf-amt">
           <span className="mono">{e.usd != null ? usd(e.usd) : 'unpriced'}</span>
@@ -111,7 +107,7 @@ function Detail({ e, feed }: { e: Ev; feed: string }) {
         </dl>
       </div>
 
-      <div className="cf-sec cf-sec--ok">
+      <div className="cf-sec">
         <h3 className="cf-h"><span className="cf-n">2</span>What was paid out</h3>
         <dl className="cf-facts">
           <dt>Amount</dt><dd><b>{e.symbol} {human(e.amount, e.decimals)}</b>{e.usd != null && <> · {usd(e.usd)}</>}</dd>
@@ -122,30 +118,31 @@ function Detail({ e, feed }: { e: Ev; feed: string }) {
         </dl>
       </div>
 
-      <div className="cf-sec cf-sec--ok">
+      <div className="cf-sec">
         <h3 className="cf-h"><span className="cf-n">3</span>What we looked for</h3>
         <p className="cf-lede">A deposit of <b>{e.symbol} {human(e.amount, e.decimals)}</b> from {src} for this same person, made before this payout and not already used for another payout.</p>
         <div className="cf-search">
           <div><b>{NUM.format(s.deposits_checked)}</b><span>deposits checked (whole history{s.since ? ` since ${day(s.since)}` : ''})</span></div>
-          <div className={s.same_amount_and_recipient ? 'ok' : 'bad'}><b>{s.same_amount_and_recipient}</b><span>same amount <b>and</b> same person</span></div>
+          <div className={s.same_amount_and_recipient ? 'ok' : 'bad'}><b>{s.same_amount_and_recipient}</b><span>same amount and same person</span></div>
           <div><b>{s.same_amount_other_recipient}</b><span>same amount, different person</span></div>
           <div><b>{s.same_recipient_other_amount}</b><span>same person, different amount</span></div>
+          <div className={s.same_message_id ? 'warn' : ''}><b>{s.same_message_id}</b><span>same message ID</span></div>
         </div>
-        {bad && s.same_message_id > 0 && <p className="note warn" style={{ margin: '10px 22px 0', padding: '10px 14px', background: 'var(--pending-ink)', border: '1px solid var(--pending)' }}>A deposit with this message ID exists, so a tool matching by ID alone would have said "fine". Its amount or recipient is different, so we do not accept it.</p>}
-        {e.deposit && <p className="cf-lede" style={{ margin: '10px 22px 0' }}>Matched deposit: {src} {dep ? <a href={dep} target="_blank" rel="noreferrer" className="mono">{e.deposit.tx.slice(0, 14)}… ↗</a> : <span className="mono">{e.deposit.tx.slice(0, 14)}…</span>}, {utc(e.deposit.ts).slice(0, 19)}.</p>}
+        {bad && s.same_message_id > 0 && <p className="ws-callout ws-callout--warn">A deposit with this message ID exists, so a tool matching by ID alone would have said "fine". Its amount or recipient is different, so we do not accept it.</p>}
+        {e.deposit && <p className="cf-lede">Matched deposit: {src} {dep ? <a href={dep} target="_blank" rel="noreferrer" className="mono">{e.deposit.tx.slice(0, 14)}… ↗</a> : <span className="mono">{e.deposit.tx.slice(0, 14)}…</span>}, {utc(e.deposit.ts).slice(0, 19)}.</p>}
       </div>
 
-      <div className="cf-sec cf-sec--warn">
+      <div className="cf-sec">
         <h3 className="cf-h"><span className="cf-n">4</span>Suspected attack type</h3>
-        {e.type && bad && <p className="note" style={{ padding: '0 22px' }}>Suggested attack type: <b>{TYPE_SHORT[e.type] ?? e.type}</b>. Its model confidence is trained on synthetic scenarios, not a measured probability for real attacks.</p>}
-        {!e.type && <p className="note" style={{ padding: '0 22px' }}>No attack type classified (deposit rule held).</p>}
+        {e.type && bad && <p className="cf-lede">Suggested attack type: <b>{TYPE_SHORT[e.type] ?? e.type}</b>. Its model confidence is trained on synthetic scenarios, not a measured probability for real attacks.</p>}
+        {!e.type && <p className="cf-lede">No attack type classified (deposit rule held).</p>}
       </div>
 
-      <div className="cf-sec cf-sec--ok">
+      <div className="cf-sec">
         <h3 className="cf-h"><span className="cf-n">5</span>Evidence bundle</h3>
         <p className="cf-lede">SHA-256 digest of the supplied exhibit. Your browser can recompute it.</p>
         <dl className="cf-facts">
-          <dt>Digest</dt><dd><div className="id"><span className="mono brk">{e.evidence?.sha256 ?? 'n/a'}</span><button className="id-btn" title="Copy" onClick={() => navigator.clipboard.writeText(e.evidence?.sha256 ?? '')} aria-label="Copy digest">Copy</button></div></dd>
+          <dt>Digest</dt><dd>{e.evidence ? <Ident value={e.evidence.sha256} head={16} tail={10} /> : 'n/a'}</dd>
           <dt>Message ID</dt><dd className="mono brk">{e.evidence?.bundle?.release?.msg_id ?? 'n/a'}</dd>
           <dt>Amount</dt><dd className="mono">{e.evidence?.bundle?.release?.amount ?? 'n/a'}</dd>
           <dt>Recipient</dt><dd className="mono brk">{e.evidence?.bundle?.release?.recipient ?? 'n/a'}</dd>
@@ -157,7 +154,7 @@ function Detail({ e, feed }: { e: Ev; feed: string }) {
 
       <div className="cf-next">
         <p className="cf-lede">Checked against every deposit in the dataset, not just the part of the replay you can see. Data: XChainWatcher's public Nomad and Ronin transfers. Their labels are the reference here, which we say openly.</p>
-        <p className="cf-link"><a href="/console/results" className="ws-link">All measured results →</a></p>
+        <Link className="cf-link" to="/console/results">All measured results →</Link>
       </div>
     </section>
   );
@@ -178,20 +175,20 @@ function EvidenceCheck({ e }: { e: Ev }) {
     catch (err) { setError(String(err)); }
   };
   return (
-    <div className="cf-sec cf-sec--ok">
+    <div className="cf-sec">
       <h3 className="cf-h"><span className="cf-n">6</span>Verify the supplied evidence</h3>
       <p className="cf-lede">Your browser checks the SHA-256 digest and recomputes the message, amount, recipient and prior-use rule.</p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+      <div className="row-wrap">
         <button className="btn btn--line btn--sm" onClick={() => void verify('original')}>Verify original</button>
         <button className="btn btn--line btn--sm" onClick={() => void verify('amount')}>Add 1 tiny unit</button>
         <button className="btn btn--line btn--sm" onClick={() => void verify('recipient')}>Send it to someone else</button>
       </div>
-      {error && <p role="alert" className="bad" style={{ margin: '8px 0 0', padding: '10px 14px', background: 'var(--violation-ink)', border: '1px solid var(--violation)' }}>{error}</p>}
-      {result && <div className={`ev-verdict ${result.integrity ? 'is-ok' : 'is-bad'}`} role="status" style={{ marginTop: 10, padding: '14px 16px', background: 'var(--bg-raise)', display: 'grid', gap: 4 }}>
+      {error && <p role="alert" className="ws-callout ws-callout--bad">{error}</p>}
+      {result && <div className={`ev-verdict ${result.integrity ? 'is-ok' : 'is-bad'}`} role="status">
         <b>{result.integrity ? 'Digest matches the original exhibit' : 'Tampering detected: digest does not match'}</b>
         <span>Recomputed: {result.status} · {RULE_TEXT[result.rule ?? ''] ?? result.rule ?? 'exact backing checks pass'}{edit === 'original' && result.status !== e.status ? ' · differs from reported verdict' : ''}</span>
       </div>}
-      <p className="note" style={{ margin: '10px 0 0' }}>This checks supplied dataset evidence. The server still supplies the history and its completeness claim; this is not an on-chain proof that a deposit never existed.</p>
+      <p className="ws-note">This checks supplied dataset evidence. The server still supplies the history and its completeness claim; this is not an on-chain proof that a deposit never existed.</p>
     </div>
   );
 }

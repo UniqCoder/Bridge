@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertCard } from '../../live/AlertCard';
+import { Pause, Play } from '@phosphor-icons/react';
+import { CaseFile } from '../../live/CaseFile';
 import { Map3D } from '../../live/Map3D';
-import { FEEDS, useClock, useReplayData, useView, type Replay } from '../../live/data';
+import { Scrubber } from '../../live/Scrubber';
+import { FEEDS, useClock, useMetrics, useReplayData, useView, type Replay } from '../../live/data';
 import { usd, utc } from '../../lib/format';
 import '../../live/ws.css';
 
@@ -13,32 +15,21 @@ export default function MapPage() {
   const { data, err } = useReplayData(feed);
   return (
     <div className="ws">
-      <div className="ws-feeds" role="tablist" aria-label="Choose a replay">
+      <nav className="ws-feeds ws-feeds--3" role="tablist" aria-label="Choose a replay">
         {SHOWN.map((f) => (
-          <button
-            key={f.id}
-            role="tab"
-            aria-selected={feed === f.id}
-            className="ws-feed"
-            onClick={() => setFeed(f.id)}
-          >
-            <b>{f.label}</b>
-            <span>{f.note}</span>
-          </button>
-        ))}
-      </div>
-      {err ? (
-        <div className="ws-panel ws-msg ws-msg--bad">Could not load: {err}</div>
-      ) : !data ? (
-        <div className="ws-panel ws-msg"><span className="ws-skel" /> Loading the map…</div>
-      ) : (
-        <MapView data={data} key={feed} />
-      )}
+          <button key={f.id} role="tab" aria-selected={feed === f.id} className="ws-feed" onClick={() => setFeed(f.id)}>
+            <b>{f.label}</b><span>{f.note}</span>
+          </button>))}
+      </nav>
+      {err ? <div className="ws-msg ws-msg--bad">Could not load: {err}</div>
+        : !data ? <div className="ws-msg" aria-busy="true"><span className="ws-skel" />Loading the map…</div>
+        : <MapView data={data} key={feed} />}
     </div>
   );
 }
 
 function MapView({ data }: { data: Replay }) {
+  const metrics = useMetrics();
   const [playing, setPlaying] = useState(true);
   const start = data.events[Math.min(data.events.length - 1, 15)].ts;
   const [t, setT] = useClock(data.window, (data.window[1] - data.window[0]) / 40, playing);
@@ -47,83 +38,32 @@ function MapView({ data }: { data: Replay }) {
   const [qs] = useSearchParams();
   useEffect(() => {
     const q = Number(qs.get('t'));
-    if (q > 0) {
-      setT(Math.min(Math.max(q, data.window[0]), data.window[1]));
-      setPlaying(false);
-    }
+    if (q > 0) { setT(Math.min(Math.max(q, data.window[0]), data.window[1])); setPlaying(false); }
   }, [data]);
   const byId = useMemo(() => new Map(data.events.map((e) => [e.id, e])), [data]);
   const top = sel ? byId.get(sel) ?? null : v.alerts[v.alerts.length - 1] ?? null;
+  const mates = top?.signals && top.signals.cluster_size > 1 ? v.withdrawals.filter((e) => e.signals?.cluster === top.signals!.cluster).length : 0;
   return (
     <>
-      <div className="ws-transport">
+      <section className="ws-transport" aria-label="Replay controls">
         <div className="ws-tbtns">
-          <button className="btn ws-play" onClick={() => setPlaying((p) => !p)}>
-            {playing ? 'Pause' : 'Play'}
+          <button className="btn ws-play" onClick={() => setPlaying((p) => !p)} aria-label={playing ? 'Pause' : 'Play'}>
+            {playing ? <Pause size={18} weight="fill" /> : <Play size={18} weight="fill" />}{playing ? 'Pause' : 'Play'}
           </button>
+          <span className="ws-clock mono">{utc(t).slice(0, 19)}<small>UTC</small></span>
         </div>
-        <div className="scrub" role="slider" aria-label="Replay time" tabIndex={0}>
-          <svg viewBox="0 0 1000 58" preserveAspectRatio="none" aria-hidden="true">
-            <rect className="scrub-base" x="0" y="0" width="1000" height="58" rx="0" />
-            {v.ticks.map((k, i) => (
-              <rect
-                key={i}
-                className={k.unbacked_usd > 0 ? 'scrub-bad' : 'scrub-ok'}
-                x={(i / (v.ticks.length - 1)) * 1000}
-                y="0"
-                width={Math.max(1, 1000 / v.ticks.length)}
-                height="58"
-              />
-            ))}
-            {v.alerts.map((a) => (
-              <line
-                key={a.id}
-                className="scrub-alert"
-                x1={((a.ts - data.window[0]) / (data.window[1] - data.window[0])) * 1000}
-                x2={((a.ts - data.window[0]) / (data.window[1] - data.window[0])) * 1000}
-                y1="0"
-                y2="58"
-              />
-            ))}
-            <line
-              className="scrub-head"
-              x1={((t - data.window[0]) / (data.window[1] - data.window[0])) * 1000}
-              x2={((t - data.window[0]) / (data.window[1] - data.window[0])) * 1000}
-              y1="0"
-              y2="58"
-            />
-            <circle className="scrub-knob" cx={((t - data.window[0]) / (data.window[1] - data.window[0])) * 1000} cy="29" r="6" />
-          </svg>
-          <input
-            type="range"
-            min={data.window[0]}
-            max={data.window[1]}
-            value={Math.floor(t)}
-            aria-label="Replay time"
-            onChange={(e) => setT(+e.target.value)}
-            style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'ew-resize' }}
-          />
-        </div>
-        <div className="ws-scrub-legend">
-          <span><i className="k-ok" />backed</span>
-          <span><i className="k-bad" />no deposit</span>
-          <span><i className="k-tick" />alert</span>
-        </div>
-        <span className="ws-clock mono">{utc(t).slice(5, 19)}</span>
-      </div>
+        <Scrubber data={data} t={t} setT={(x) => { setPlaying(false); setT(x); }} domain={data.window} />
+        <div className="ws-scrub-legend"><span><i className="k-ok" />payouts backed by a deposit</span><span><i className="k-bad" />payouts breaking the rule</span><span><i className="k-tick" />exploit alert</span></div>
+      </section>
       <div className="ws-grid">
-        <div className="ws-left">
-          <section className="ws-panel">
-            <header className="plate-head">
-              <span className="label">{data.label} · drag to orbit, scroll to zoom, click a payout</span>
-              <span className="mono small dim">{v.withdrawals.length} payouts · {usd(v.unbacked)} with no deposit</span>
-            </header>
-            <div className="ws-ledger-body" style={{ minHeight: 520 }}>
-              <Map3D data={data} n={v.n} selected={top?.id ?? null} onSelect={setSel} spin={playing} />
-            </div>
-          </section>
-        </div>
-        <aside className="ws-right"><AlertCard e={top} data={data} /></aside>
+        <section className="ws-panel">
+          <header className="ws-ph">
+            <div><h2 className="ws-h">3D flow map</h2><p className="dim">{data.label}. Drag to orbit, scroll to zoom, click a payout to open its case.</p></div>
+            <span className="mono dim">{v.withdrawals.length} payouts · <span className="bad">{usd(v.unbacked)}</span> not backed</span>
+          </header>
+          <div className="ws-map"><Map3D data={data} n={v.n} selected={top?.id ?? null} onSelect={(id) => { setSel(id); setPlaying(false); }} spin={playing} /></div>
+        </section>
+        <div className="ws-right"><CaseFile e={top} data={data} threshold={metrics?.ecusum_threshold ?? null} mates={mates} /></div>
       </div>
     </>
   );
