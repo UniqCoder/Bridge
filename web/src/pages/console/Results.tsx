@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Seg } from './Usps';
-import { TYPE_SHORT, useMetrics, type FeedMetrics, type Metrics } from '../../live/data';
+import { TYPE_SHORT, useMetrics } from '../../live/data';
 import { duration, usd } from '../../lib/format';
 import '../../live/ws.css';
 
@@ -118,15 +118,6 @@ export default function Results() {
 
       <section className="ws-panel">
         <header className="plate-head" style={{ padding: '12px 20px', borderBottom: '1px solid var(--line)' }}>
-          <span className="label">The three models, in plain words</span>
-        </header>
-        <div className="ws-charts" style={{ gridTemplateColumns: 'repeat(3, 1fr)', padding: '16px 20px' }}>
-          <Models m={m} f={f} />
-        </div>
-      </section>
-
-      <section className="ws-panel">
-        <header className="plate-head" style={{ padding: '12px 20px', borderBottom: '1px solid var(--line)' }}>
           <span className="label">What we do not claim</span>
         </header>
         <div className="ws-charts" style={{ gridTemplateColumns: '1fr', padding: '16px 20px' }}>
@@ -145,17 +136,3 @@ export default function Results() {
 }
 
 const plain = (s: string) => s.replace('B1 whale > $1M', 'Flag any payout above $1 million').replace('B2 volume z-score > 3', 'Flag volume over 3 standard deviations above normal').replace('B3 message-id join', 'Match payouts to deposits by message ID').replace('BridgeWitness (exploit)', 'BridgeWitness · "exploit" label').replace('BridgeWitness (any alert)', 'BridgeWitness · any alert');
-
-function Models({ m, f }: { m: Metrics; f: FeedMetrics }) {
-  const k = m.ml1_delay_cqr;
-  return (
-    <div className="models" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-      <div><h5 style={{ font: '600 14px var(--sans)', margin: '0 0 6px' }}>1 · Normal timing model</h5><p style={{ margin: '0 0 8px', color: 'var(--text-2)', fontSize: '13.5px', lineHeight: '1.55' }}>Learns how long a deposit normally takes to be paid out on each route, so a payout with no fitting deposit stands out.</p>
-        <p style={{ margin: 0, color: 'var(--text-2)', fontSize: '13.5px', lineHeight: '1.55' }}><b>{(k.test_coverage * 100).toFixed(1)}%</b> of normal payouts it had never seen landed inside its window (goal {(100 - k.miscoverage_target * 100).toFixed(0)}%). Trained on {NUM.format(k.n_train)} real pairs.</p></div>
-      <div><h5 style={{ font: '600 14px var(--sans)', margin: '0 0 6px' }}>2 · Signer and ID model</h5><p style={{ margin: '0 0 8px', color: 'var(--text-2)', fontSize: '13.5px', lineHeight: '1.55' }}>Learns what normal Ronin withdrawals look like: which validators sign, how big, and which ID.</p>
-        <p style={{ margin: 0, color: 'var(--text-2)', fontSize: '13.5px', lineHeight: '1.55' }}>Scores the two real attack withdrawals at <b>{m.feeds.ronin.auth_attack_p?.join(' and ')}</b>; a normal one scores about <b>{m.feeds.ronin.auth_heldout_median_p}</b> (smaller = stranger).</p></div>
-      <div><h5 style={{ font: '600 14px var(--sans)', margin: '0 0 6px' }}>3 · Attack-type model</h5><p style={{ margin: '0 0 8px', color: 'var(--text-2)', fontSize: '13.5px', lineHeight: '1.55' }}>Names the likely kind of attack and shows the top reasons, using exact per-feature contributions.</p>
-        <p style={{ margin: 0, color: 'var(--text-2)', fontSize: '13.5px', lineHeight: '1.55' }}>Trained on practice attacks over real normal traffic, with separate training, calibration and test rows. Real incident outputs are reported individually. {f.attack_flagged_exploit > 0 && 'Its job is the label and the reasons, never the accusation.'}</p></div>
-    </div>
-  );
-}
