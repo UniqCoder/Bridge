@@ -1,6 +1,6 @@
 # BridgeWitness v3: handoff
 
-Read this first. Then `NEW.md` (the locked product spec, with a PDF beside it in `docs/`). Everything older (PRD v2.2, PROGRESS.md, BridgeWitness-ML-Reliability.md, `pitch/`, `docs/BridgeWitness-Hackathon-Brief.*`) describes the **first prototype** and is stale: do not copy numbers or claims from it.
+Read this first. Then `NEW.md` (the locked product spec, with a PDF beside it in `docs/`). Everything older (docs/archive/: PRD v2.2, PROGRESS.md, BridgeWitness-ML-Reliability.md; `pitch/`, `docs/BridgeWitness-Hackathon-Brief.*`) describes the **first prototype** and is stale: do not copy numbers or claims from it.
 
 | | |
 |---|---|
