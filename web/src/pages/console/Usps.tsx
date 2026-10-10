@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { RULE_TEXT, SIGNAL_NAME, human, txUrl, useMetrics, useReplayData, type Ev, type Metrics, type Replay } from '../../live/data';
 import { usd, utc } from '../../lib/format';
 import '../../live/pages.css';
+import '../../live/ws.css';
 import { NextStep, STEPS } from '../../live/CaseBar';
 
 const NUM = new Intl.NumberFormat('en-US');
@@ -52,7 +53,7 @@ function KeyStats({ n, m }: { n: number; m: Metrics | null }) {
      [nm?.counterfactual ? usdShort(nm.counterfactual.attack_usd) : '…', 'paid out with no deposit behind it', 'bad'],
      [rn ? `${rn.attack_flagged_exploit} / ${rn.attack_releases}` : '…', 'Ronin attack payouts caught', 'ok']],
   ];
-  return <div className="keystats">{rows[n - 1].map(([v, l, t]) => <div key={l} className={t ? `ks--${t}` : ''}><b>{v}</b><span>{l}</span></div>)}</div>;
+  return <dl className="ws-kpis ws-kpis--3">{rows[n - 1].map(([v, l, t]) => <div key={l}><dt>{l}</dt><dd className={`mono${t ? ` ${t}` : ''}`}>{v}</dd></div>)}</dl>;
 }
 
 /** One page per idea: what it is, why it matters, then a demo on real data. */
@@ -60,12 +61,18 @@ export default function Usps({ n }: { n: 1 | 2 | 3 | 4 }) {
   const m = useMetrics();
   const idea = IDEAS[n - 1];
   const Demo = [BudgetDemo, ContagionDemo, SignerDemo, PairingDemo][n - 1];
+  const step = STEPS.find((x) => x.to === idea.to)!;
   return (
-    <div className="pg">
-      <header className="pg-head">
-        <span className="label">Step {STEPS.find((x) => x.to === idea.to)!.n} of 5 · {idea.name} · answers the challenge’s “{idea.answers}”</span>
-        <h2 className="pg-title">{STEPS.find((x) => x.to === idea.to)!.q}</h2>
-        <div className="plain"><p><b>In plain words.</b> {PLAIN[idea.to].analogy}</p><p><b>Why it matters.</b> {PLAIN[idea.to].why}</p></div>
+    <div className="ws">
+      <header className="ws-sit ws-sit--page">
+        <div>
+          <p className="ws-sit-k">Step {step.n} of 5 · {idea.name} · answers the challenge’s “{idea.answers}”</p>
+          <h2 className="ws-sit-h">{step.q}</h2>
+          <div className="ws-plain">
+            <p><b>In plain words.</b> {PLAIN[idea.to].analogy}</p>
+            <p><b>Why it matters.</b> {PLAIN[idea.to].why}</p>
+          </div>
+        </div>
       </header>
       <KeyStats n={n} m={m} />
       <Usp n={n} name={idea.name} tag={idea.tag} problem={idea.problem} how={idea.how}><Demo m={m} /></Usp>
@@ -73,16 +80,17 @@ export default function Usps({ n }: { n: 1 | 2 | 3 | 4 }) {
     </div>
   );
 }
-function Usp({ n, name, tag, how, children }: { n: number; name: string; tag: string; problem: string; how: string; children: ReactNode }) {
+function Usp({ n, name, tag, problem, how, children }: { n: number; name: string; tag: string; problem: string; how: string; children: ReactNode }) {
   return (
-    <section className="usp" id={`usp-${n}`}>
-      <div className="usp-copy">
-        <span className="usp-n">{n}</span>
-        <h3>{name}</h3>
-        <span className="usp-tag">{tag}</span>
-        <p><b>How it works.</b> {how}</p>
-      </div>
-      <div className="usp-demo">{children}</div>
+    <section className="ws-panel usp" id={`usp-${n}`}>
+      <header className="ws-ph usp-head">
+        <div><h2 className="ws-h">{name}<span className="usp-tag">{tag}</span></h2></div>
+        <div className="usp-copy">
+          <p><b>The problem.</b> {problem}</p>
+          <p><b>How it works.</b> {how}</p>
+        </div>
+      </header>
+      {children}
     </section>
   );
 }
@@ -108,14 +116,14 @@ function BudgetDemo({ m }: { m: Metrics | null }) {
               <li key={k} className={(p as number) < 0.01 ? 'hot' : ''}><span>{SIGNAL_NAME[k] ?? k}</span><i style={{ width: `${Math.min(100, -Math.log10(Math.max(p as number, 1e-4)) * 25)}%` }} /><em>{(p as number) < 0.001 ? '< 0.001' : (p as number).toFixed(3)}</em></li>))}</ul>
             <p className="note">Small number = rarer than almost everything seen recently.</p></div>
           <div className="step"><span className="step-n">2</span><h4>Add the evidence up</h4>
-            <div className="bignum">{e.e_comb != null ? (e.e_comb >= 10 ? Math.round(e.e_comb) : e.e_comb.toFixed(1)) : '—'}</div>
+            <div className="bignum">{e.e_comb != null ? (e.e_comb >= 10 ? Math.round(e.e_comb) : e.e_comb.toFixed(1)) : 'n/a'}</div>
             <p className="note">Evidence score. <b>1 means nothing unusual</b>; the higher, the stranger. Several weak signs add up, one noisy sign barely moves it.</p></div>
           <div className="step"><span className="step-n">3</span><h4>Did the deposit rule break?</h4>
             <div className={`bignum ${e.status === 'violation' ? 'bad' : 'ok'}`}>{e.status === 'violation' ? 'Yes' : 'No'}</div>
             <p className="note">{e.status === 'violation' ? 'No deposit backs this payout.' : 'A deposit of the same amount to the same person was found.'}</p></div>
         </div>
         <div className={`verdict verdict--${e.level}`}>
-          <b>{e.level === 'exploit' ? 'EXPLOIT' : e.level === 'suspicious' ? 'SUSPICIOUS (advice only)' : 'NO ALERT'}</b>
+          <b>{e.level === 'exploit' ? 'Exploit' : e.level === 'suspicious' ? 'Suspicious (advice only)' : 'No alert'}</b>
           <span>{e.level === 'exploit' ? `The deposit rule broke: ${RULE_TEXT[e.rule ?? ''] ?? e.rule}. Priority ${e.risk}/100; statistical agreement is not required.` : e.level === 'suspicious' ? 'Unusual, but the deposit rule held, so we do not accuse. Priority is capped below 70.' : e.signals && (e.p?.value_vs_route ?? 1) < 0.05 ? 'This payout is large, but it is fully backed. Big does not mean guilty, so nobody is accused.' : 'Looks like everyday traffic.'}</span>
         </div>
         <div className="demo-meta">{e.symbol} {human(e.amount, e.decimals)} · {e.usd != null ? usd(e.usd) : 'unpriced'} · {utc(e.ts).slice(0, 19)}{e.scenario ? ' · practice attack' : ''}</div>
@@ -279,8 +287,8 @@ function PairingDemo({ m }: { m: Metrics | null }) {
         <div className="duel-c"><span className="label">Match by message ID only</span><b className="mono">{b3?.attack_flagged}</b><span>attack releases caught</span><em>{fooled != null ? `${fooled} looked fine because the ID had been used by a real deposit` : ''}</em></div>
         <div className="duel-c duel-c--us"><span className="label">Ledger Pairing (ours)</span><b className="mono">{f.attack_flagged_exploit}/{f.attack_releases}</b><span>attack releases caught</span><em>{f.normal_false_exploit} honest payouts wrongly accused</em></div>
       </div>
-      <div className="demo-bar" style={{ marginTop: 14 }}>
-        <span className="demo-hint">The money in vs out gap by the end of the replay: <b className="bad">{last ? usd(last.unbacked_usd) : '—'}</b> paid out with nothing behind it.</span>
+      <div className="demo-bar">
+        <span className="demo-hint">The money in vs out gap by the end of the replay: <b className="bad">{last ? usd(last.unbacked_usd) : 'n/a'}</b> paid out with nothing behind it.</span>
         <label className="chk"><input type="checkbox" checked={onlyFooled} onChange={(e) => setOnlyFooled(e.target.checked)} /> only show the ones ID-matching misses</label>
       </div>
       <div className="tbl-wrap"><table className="tbl">
@@ -288,7 +296,7 @@ function PairingDemo({ m }: { m: Metrics | null }) {
         <tbody>{rows.map((e) => (
           <tr key={e.id}><td className="mono">{utc(e.ts).slice(11, 19)}</td><td className="mono">{e.symbol} {human(e.amount, e.decimals, 2)}</td><td className="mono">{e.msg_id}</td>
             <td>{(e.search?.same_message_id ?? 0) > 0 ? <span className="warn">“Matched” (ID was used before)</span> : <span className="bad">No deposit with this ID</span>}</td>
-            <td className="bad">{RULE_TEXT[e.rule ?? ''] ?? e.rule} ({e.search ? NUM.format(e.search.deposits_checked) : '—'} checked)</td></tr>))}</tbody>
+            <td className="bad">{RULE_TEXT[e.rule ?? ''] ?? e.rule} ({e.search ? NUM.format(e.search.deposits_checked) : 'n/a'} checked)</td></tr>))}</tbody>
       </table></div>
       <p className="note">Want to check one yourself, against the full deposit history? <Link to="/console/evidence?feed=nomad">Open it on the Check it yourself page →</Link></p>
     </div>
