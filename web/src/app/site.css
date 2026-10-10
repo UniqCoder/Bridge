@@ -1,28 +1,26 @@
-/* ── Site shell: floating nav island ── */
+/* ── Site shell: full-width bar, same square system as the console ── */
 .site { position: relative; }
-.site main { padding-top: 76px; }
-.skip { position: absolute; left: 12px; top: -60px; z-index: 40; padding: 10px 14px; background: var(--text); color: var(--bg); border-radius: 8px; }
+.site main { padding-top: 64px; }
+.skip { position: absolute; left: 12px; top: -60px; z-index: 40; padding: 10px 14px; background: var(--text); color: var(--bg); }
 .skip:focus { top: 12px; }
-.site-nav { position: fixed; top: 14px; left: 0; right: 0; z-index: 20; display: flex; justify-content: center; pointer-events: none; padding: 0 var(--gutter); }
-.nav-island { pointer-events: auto; display: flex; align-items: center; gap: clamp(14px, 2.4vw, 32px); height: 52px; padding: 0 6px 0 18px; border-radius: 999px;
-  background: rgb(12 14 17 / .92); /* no backdrop blur: it re-blurs the WebGL hero on every frame */
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08), inset 0 1px 0 rgb(255 255 255 / .06), 0 20px 50px -20px rgb(0 0 0 / .8); max-width: 100%; }
+.site-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: 64px; background: rgb(8 9 11 / .94); border-bottom: 1px solid var(--line); }
+.nav-island { display: flex; align-items: center; gap: clamp(16px, 2.6vw, 36px); height: 100%; max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
+.nav-island > a:first-child { margin-right: auto; }
 .site-nav a { text-decoration: none; }
-.site-links { display: flex; gap: clamp(12px, 1.8vw, 24px); font-size: 14px; color: var(--text-2); white-space: nowrap; }
-.site-links a { transition: color .25s var(--ease); }
+.site-links { display: flex; gap: clamp(14px, 2vw, 28px); font-size: 14.5px; color: var(--text-2); white-space: nowrap; }
+.site-links a { transition: color .2s var(--ease); padding: 6px 0; }
 .site-links a:hover, .site-links a.active { color: var(--text); }
-.nav-cta { height: 40px; display: inline-flex; align-items: center; padding: 0 18px; border-radius: 999px; background: var(--text); color: var(--bg) !important; font: 600 13.5px var(--sans); white-space: nowrap; transition: transform .3s var(--ease); }
-.nav-cta:active { transform: scale(.97); }
-.nav-menu { display: none; width: 40px; height: 40px; border-radius: 999px; border: 0; background: var(--panel-2); color: var(--text); place-items: center; cursor: pointer; }
+.site-links a.active { box-shadow: inset 0 -1px 0 var(--text); }
+.nav-cta { height: 40px; display: inline-flex; align-items: center; padding: 0 16px; background: var(--text); color: var(--bg) !important; font: 600 14px var(--sans); white-space: nowrap; transition: background .2s var(--ease); }
+.nav-cta:hover { background: #fff; }
+.nav-menu { display: none; width: 40px; height: 40px; border: 1px solid var(--line-2); background: none; color: var(--text); place-items: center; cursor: pointer; }
 @media (max-width: 1080px) {
   .nav-menu { display: grid; }
   .site-links { display: none; }
-  .site-links.is-open { display: grid; gap: 4px; position: absolute; top: 60px; left: var(--gutter); right: var(--gutter); padding: 10px; border-radius: 22px;
-    background: rgb(12 14 17 / .96); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08), 0 30px 60px -20px rgb(0 0 0 / .8); font-size: 16px; }
-  .site-links.is-open a { padding: 12px 14px; border-radius: 14px; } .site-links.is-open a:hover { background: var(--panel-2); }
+  .site-links.is-open { display: grid; position: absolute; top: 64px; left: 0; right: 0; padding: 8px var(--gutter) 16px; background: var(--bg-raise); border-bottom: 1px solid var(--line); font-size: 16px; }
+  .site-links.is-open a { padding: 12px 0; border-bottom: 1px solid var(--line); box-shadow: none; }
 }
 @media (max-width: 480px) { .nav-cta { display: none; } }
-@media (prefers-reduced-transparency: reduce) { .nav-island { background: var(--panel); backdrop-filter: none; } }
 .page-loading { padding: 120px var(--gutter); text-align: center; }
 
 .section { padding: clamp(72px, 10vw, 140px) 0; border-top: 1px solid var(--line); }
@@ -182,7 +180,7 @@
 /* ── Footer ── */
 .site-footer { border-top: 1px solid var(--line); padding: 56px 0 64px; background: var(--bg-raise); }
 .footer-grid { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr) minmax(0, 0.9fr); gap: 40px; }
-.nonclaims { margin: 0; padding-left: 18px; columns: 2 260px; column-gap: 32px; font-size: 12.5px; color: var(--text-3); }
+.nonclaims { margin: 0; padding-left: 18px; columns: 2 260px; column-gap: 32px; font-size: 13.5px; line-height: 1.5; color: var(--text-3); }
 .nonclaims li { break-inside: avoid; margin-bottom: 8px; }
 .sources { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 11px; color: var(--text-2); }
 .site-footer a { color: var(--text-2); }

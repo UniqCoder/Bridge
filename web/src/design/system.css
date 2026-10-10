@@ -47,11 +47,6 @@ body {
   font: 400 15px/1.55 var(--sans);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
-  /* engraved micro-grid */
-  background-image:
-    linear-gradient(rgb(255 255 255 / 0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(255 255 255 / 0.018) 1px, transparent 1px);
-  background-size: 56px 56px;
 }
 ::selection { background: color-mix(in oklab, var(--verified) 30%, transparent); }
 :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }

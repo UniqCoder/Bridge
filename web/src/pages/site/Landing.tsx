@@ -1,25 +1,22 @@
-import { lazy, Suspense, useEffect, useRef, type PointerEvent, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { animate, motion, useInView, useReducedMotion, useScroll, useTransform } from 'framer-motion';
-import { ArrowUpRight, Cube, Fingerprint, Graph, Scales, ShieldWarning, TreeStructure } from '@phosphor-icons/react';
+import { ArrowRight, Cube, Fingerprint, Graph, TreeStructure } from '@phosphor-icons/react';
+import { Ledger } from '../../live/Ledger';
 import { useClock, useMetrics, useReplayData, useView, type Metrics, type Replay } from '../../live/data';
+import { usd } from '../../lib/format';
 import '../../live/live.css';
+import '../../live/ws.css';
 import '../../app/landing.css';
 
-const Map3D = lazy(() => import('../../live/Map3D'));
 const NUM = new Intl.NumberFormat('en-US');
 const EASE = [0.16, 1, 0.3, 1] as const;
-const noop = () => {};
 const usdM = (v: number) => `$${(v / 1e6).toFixed(1)}M`;
 
 /* ── shared pieces ─────────────────────────────────────────────────────── */
 
-/** Primary CTA: pill with the arrow in its own island (button-in-button). */
 export const Cta = ({ to, children, ghost }: { to: string; children: ReactNode; ghost?: boolean }) => (
-  <Link to={to} className={`cta ${ghost ? 'cta--ghost' : ''}`}>
-    <span>{children}</span>
-    <i aria-hidden="true"><ArrowUpRight size={14} weight="bold" /></i>
-  </Link>
+  <Link to={to} className={`cta${ghost ? ' cta--ghost' : ''}`}><span>{children}</span><ArrowRight size={16} weight="bold" aria-hidden="true" /></Link>
 );
 
 /** Counts up once when scrolled into view. Writes to the DOM directly, never through React state. */
@@ -30,7 +27,7 @@ function Ticker({ to, format = (v: number) => NUM.format(Math.round(v)) }: { to:
   useEffect(() => {
     if (!ref.current) return;
     if (!seen || reduce) { ref.current.textContent = format(to); return; }
-    const c = animate(0, to, { duration: 1.6, ease: EASE, onUpdate: (v) => { if (ref.current) ref.current.textContent = format(v); } });
+    const c = animate(0, to, { duration: 1.4, ease: EASE, onUpdate: (v) => { if (ref.current) ref.current.textContent = format(v); } });
     return () => c.stop();
   }, [seen, to, reduce]);
   return <span ref={ref}>{format(to)}</span>;
@@ -39,62 +36,63 @@ function Ticker({ to, format = (v: number) => NUM.format(Math.round(v)) }: { to:
 const Rise = ({ children, delay = 0, className }: { children: ReactNode; delay?: number; className?: string }) => {
   const reduce = useReducedMotion();
   return (
-    <motion.div className={className} initial={reduce ? false : { opacity: 0, y: 28 }} whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.8, delay, ease: EASE }}>{children}</motion.div>
+    <motion.div className={className} initial={reduce ? false : { opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.7, delay, ease: EASE }}>{children}</motion.div>
   );
 };
 
-/** Bento cell whose border lights up under the cursor (position goes to CSS variables, not state). */
-function Cell({ className = '', children, to }: { className?: string; children: ReactNode; to: string }) {
-  const move = (e: PointerEvent<HTMLAnchorElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`);
-    e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`);
-  };
-  return <Link to={to} className={`cell ${className}`} onPointerMove={move}><div className="cell-in">{children}</div></Link>;
-}
+/* ── hero: the real conservation ledger, replaying Nomad on a loop ─────── */
 
-/* ── hero ──────────────────────────────────────────────────────────────── */
-
-function HeroScene({ data }: { data: Replay | null }) {
-  const w = data?.window;
-  const [t, setT] = useClock(w, w ? (w[1] - w[0]) / 40 : 1, true);
-  const start = data ? data.events[Math.min(40, data.events.length - 1)].ts : 0;
-  const v = useView(data, Math.max(t, start));
-  useEffect(() => { if (w && t >= w[1]) setT(w[0]); }, [t, w]);
-  let gap = 0;
-  if (v) for (const e of v.withdrawals) if (e.status === 'violation') gap += e.usd ?? 0;
+function HeroLedger({ data }: { data: Replay }) {
+  const reduce = useReducedMotion();
+  const navigate = useNavigate();
+  const [w0, w1] = data.window;
+  // Show the whole replay, but start the clock 30 min before the first attack payout:
+  // the backed traffic before it is already on screen, and the attack arrives within seconds.
+  const firstAttack = useMemo(() => data.events.find((e) => e.truth === 'attack')?.ts ?? w0, [data]);
+  const from = Math.max(w0, firstAttack - 1800);
+  const domain = data.window;
+  const [t, setT] = useClock([from, w1], (w1 - from) / 24, !reduce);
+  useEffect(() => { if (reduce) setT(w1); }, [reduce]);
+  useEffect(() => {
+    if (reduce || t < w1) return;
+    const id = setTimeout(() => setT(from), 3500); // hold on the full picture, then replay
+    return () => clearTimeout(id);
+  }, [t >= w1, reduce]);
+  const v = useView(data, t)!;
+  const byId = useMemo(() => new Map(data.events.map((e) => [e.id, e])), [data]);
   return (
-    <>
-      <div className="hero-gl" aria-hidden="true">
-        {data && v && <Suspense fallback={null}><Map3D data={data} n={v.n} selected={null} onSelect={noop} spin bare /></Suspense>}
-      </div>
-      <div className={`hero-live ${gap > 0 ? 'is-breach' : ''}`} aria-live="off">
-        <span>{gap > 0 ? 'Nomad replay · payouts with no deposit' : 'Nomad replay · every payout backed'}</span>
-        <b className="mono">${NUM.format(Math.round(gap))}</b>
-      </div>
-    </>
+    <figure className="hero-ledger">
+      <figcaption className="hero-ledger-cap">
+        <span>Nomad bridge · 1 Aug 2022 · recorded data</span>
+        <span className={v.unbacked ? 'bad mono' : 'ok mono'}>{usd(v.unbacked)} <small>not backed</small></span>
+      </figcaption>
+      <Ledger data={data} n={v.n} t={t} domain={domain} selected={null} focus={null}
+        onSelect={(id) => { const e = byId.get(id); if (e) navigate(`/console/live?feed=nomad&t=${e.ts}`); }} />
+    </figure>
   );
 }
 
 function Hero({ data }: { data: Replay | null }) {
   const reduce = useReducedMotion();
-  const line = (d: number) => (reduce ? {} : { initial: { opacity: 0, y: 40 }, animate: { opacity: 1, y: 0 }, transition: { duration: 1, delay: d, ease: EASE } });
+  const line = (d: number) => (reduce ? {} : { initial: { opacity: 0, y: 24 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.8, delay: d, ease: EASE } });
   return (
-    <section className="hero3">
-      <HeroScene data={data} />
-      <div className="hero3-scrim" aria-hidden="true" />
-      <div className="wrap hero3-copy">
+    <section className="hero4 wrap">
+      <div className="hero4-copy">
         <h1>
-          <motion.span {...line(0.1)}>Signatures can be stolen.</motion.span>
-          <motion.span {...line(0.25)} className="hero3-accent">Conservation can't.</motion.span>
+          <motion.span {...line(0.05)}>Signatures can be stolen.</motion.span>
+          <motion.span {...line(0.15)} className="hero4-accent">Conservation can't.</motion.span>
         </h1>
-        <motion.p {...line(0.45)}>BridgeWitness checks every bridge payout against a real deposit, and flags the hack the moment one has none.</motion.p>
-        <motion.div {...line(0.6)} className="hero3-ctas">
-          <Cta to="/console/live?feed=nomad">Watch the Nomad hack</Cta>
+        <motion.p {...line(0.3)}>BridgeWitness checks every cross-chain payout against the deposit that should back it, and flags the payout that has none.</motion.p>
+        <motion.div {...line(0.45)} className="hero4-ctas">
+          <Cta to="/console/live?feed=nomad">Replay the Nomad hack</Cta>
           <Link to="/docs/architecture" className="textlink">How it works</Link>
         </motion.div>
       </div>
+      <motion.div {...line(0.2)} className="hero4-vis">
+        {data ? <HeroLedger data={data} /> : <div className="hero-ledger hero-ledger--wait" aria-busy="true"><span className="ws-skel" /></div>}
+        <p className="hero4-note">Deposits above the line, payouts below. Teal payouts are tethered to their deposit; red ones have none. Click a payout to open it in the console.</p>
+      </motion.div>
     </section>
   );
 }
@@ -102,15 +100,17 @@ function Hero({ data }: { data: Replay | null }) {
 /* ── sections ──────────────────────────────────────────────────────────── */
 
 function Proof({ m }: { m: Metrics | null }) {
-  if (!m) return <section className="proof3 wrap" aria-busy="true"><div className="skel" /><div className="skel" /><div className="skel" /></section>;
+  if (!m) return <section className="wrap"><div className="l-proof" aria-busy="true"><div className="ws-skel" /></div></section>;
   const nm = m.feeds.nomad, rn = m.feeds.ronin;
   const caught = nm.attack_flagged_exploit + rn.attack_flagged_exploit, total = nm.attack_releases + rn.attack_releases;
   const normal = nm.withdrawals - nm.attack_releases + rn.withdrawals - rn.attack_releases;
   return (
-    <section className="proof3 wrap">
-      <Rise><div className="proof3-n"><Ticker to={caught} /><em>/{total}</em></div><p>real attack payouts labelled exploit, across the Nomad and Ronin hacks</p></Rise>
-      <Rise delay={0.08}><div className="proof3-n"><Ticker to={nm.normal_false_exploit + rn.normal_false_exploit} /></div><p>honest payouts wrongly accused, out of {NUM.format(normal)}</p></Rise>
-      <Rise delay={0.16}><div className="proof3-n proof3-n--bad"><Ticker to={nm.counterfactual?.attack_usd ?? 0} format={(v) => usdM(v)} /></div><p>left Nomad with no deposit behind it</p></Rise>
+    <section className="wrap">
+      <dl className="l-proof">
+        <div><dd className="mono ok"><Ticker to={caught} /><em>/{total}</em></dd><dt>real attack payouts labelled exploit, across the Nomad and Ronin hacks</dt></div>
+        <div><dd className="mono ok"><Ticker to={nm.normal_false_exploit + rn.normal_false_exploit} /></dd><dt>honest payouts wrongly accused, out of {NUM.format(normal)}</dt></div>
+        <div><dd className="mono bad"><Ticker to={nm.counterfactual?.attack_usd ?? 0} format={(v) => usdM(v)} /></dd><dt>left Nomad with no deposit behind it (dataset prices)</dt></div>
+      </dl>
     </section>
   );
 }
@@ -118,22 +118,21 @@ function Proof({ m }: { m: Metrics | null }) {
 function Versus({ m }: { m: Metrics | null }) {
   const nm = m?.feeds.nomad, rn = m?.feeds.ronin;
   return (
-    <section className="vs wrap">
-      <Rise className="vs-head"><h2>Two hacks. Two different ways in. The same broken promise.</h2></Rise>
-      <div className="vs-grid">
-        <Rise className="vs-card">
-          <span className="vs-when">Ronin · March 2022</span>
+    <section className="l-sec wrap">
+      <Rise><h2 className="l-h">Two hacks. Two different ways in. The same broken promise.</h2></Rise>
+      <div className="l-vs">
+        <Rise className="l-vs-c">
+          <span className="l-vs-when">Ronin · March 2022</span>
           <b className="mono">{rn?.counterfactual ? usdM(rn.counterfactual.attack_usd) : '…'}</b>
           <p>Dataset total; the loss is widely quoted as $624M. Attackers held 5 of the 9 validator keys. Every signature was genuine, so signature checks saw nothing wrong. Two payouts, 115 seconds apart.</p>
         </Rise>
-        <div className="vs-mid" aria-hidden="true"><Scales size={28} weight="light" /></div>
-        <Rise className="vs-card" delay={0.1}>
-          <span className="vs-when">Nomad · August 2022</span>
+        <Rise className="l-vs-c" delay={0.08}>
+          <span className="l-vs-when">Nomad · August 2022</span>
           <b className="mono">{nm?.counterfactual ? usdM(nm.counterfactual.attack_usd) : '…'}</b>
           <p>A bug let anyone withdraw money that was never deposited. One person found it, then hundreds pasted the same transaction with their own address.</p>
         </Rise>
       </div>
-      <Rise className="vs-rule"><p>In both, coins left the bridge that were never locked on the other side. <b>That is the one thing we check, every payout, every time.</b></p></Rise>
+      <Rise className="l-rule"><p>In both, coins left the bridge that were never locked on the other side. <b>That is the one thing we check, every payout, every time.</b></p></Rise>
     </section>
   );
 }
@@ -144,14 +143,14 @@ function DotField({ n }: { n: number }) {
     const c = ref.current; if (!c) return;
     const cols = 110, rows = Math.ceil(n / cols), s = 6, dpr = Math.min(2, window.devicePixelRatio || 1);
     c.width = cols * s * dpr; c.height = rows * s * dpr; c.style.aspectRatio = `${cols} / ${rows}`;
-    const g = c.getContext('2d')!; g.scale(dpr, dpr); g.fillStyle = 'rgba(47,212,181,0.55)';
+    const g = c.getContext('2d')!; g.scale(dpr, dpr); g.fillStyle = 'rgba(47,212,181,0.6)';
     for (let i = 0; i < n; i++) g.fillRect((i % cols) * s, Math.floor(i / cols) * s, 3, 3);
   }, [n]);
   return <canvas ref={ref} className="dotfield" role="img" aria-label={`${n} unseen normal payouts, one dot each, none flagged`} />;
 }
 
 function Spark({ data }: { data: Replay | null }) {
-  if (!data) return <div className="spark skel" />;
+  if (!data) return <div className="spark ws-skel" />;
   const k = data.ticks, max = Math.max(1, ...k.map((x) => x.cluster_max)), t0 = k[0]?.t ?? 0, t1 = k[k.length - 1]?.t ?? 1;
   const d = k.map((x, i) => `${i ? 'L' : 'M'}${(((x.t - t0) / (t1 - t0)) * 100).toFixed(2)},${(40 - (x.cluster_max / max) * 38).toFixed(2)}`).join(' ');
   return (
@@ -166,19 +165,16 @@ function Ideas({ m, data }: { m: Metrics | null; data: Replay | null }) {
   const idOnly = nm?.scorecard.find((r) => r.method.startsWith('B3'))?.attack_flagged ?? '…';
   const idPct = (() => { const [a, b] = idOnly.split('/').map(Number); return b ? (a / b) * 100 : 0; })();
   return (
-    <section className="ideas3 wrap" id="ideas">
-      <Rise className="ideas3-head">
-        <span className="eyebrow">Four ideas</span>
-        <h2>Each one answers a part of the challenge, on real data.</h2>
-      </Rise>
-      <div className="bento">
-        <Cell to="/console/budget" className="b-budget">
+    <section className="l-sec wrap" id="ideas">
+      <Rise><h2 className="l-h">Four checks, each answering part of the challenge on real data.</h2></Rise>
+      <div className="l-bento">
+        <Link to="/console/budget" className="l-cell b-budget">
           <header><Graph size={22} weight="light" /><h3>Accusation Budget</h3></header>
-          <p>Warning signs add up to evidence. Only a broken deposit rule can say "exploit".</p>
-          {nm ? <DotField n={nm.heldout_normal} /> : <div className="skel" style={{ height: 120 }} />}
+          <p>Warning signs add up to evidence. Only a broken deposit rule can say “exploit”.</p>
+          {nm ? <DotField n={nm.heldout_normal} /> : <div className="ws-skel" style={{ height: 120 }} />}
           <footer><b className="mono">{nm ? `${nm.heldout_false_alarms} of ${NUM.format(nm.heldout_normal)}` : '…'}</b> unseen normal Nomad payouts raised a false alarm</footer>
-        </Cell>
-        <Cell to="/console/signers" className="b-signers">
+        </Link>
+        <Link to="/console/signers" className="l-cell b-signers">
           <header><Fingerprint size={22} weight="light" /><h3>Signer DNA</h3></header>
           <p>The real Ronin signers, recovered from the signatures inside each transaction.</p>
           <div className="vals3">{(s?.validators ?? Array.from({ length: 9 }, () => null)).map((v, i) => (
@@ -186,24 +182,24 @@ function Ideas({ m, data }: { m: Metrics | null; data: Replay | null }) {
           <footer><b className="mono">5 of 9</b> signed the attack. The same group also signed {s ? `${(s.attack_quorum_share * 100).toFixed(1)}%` : '…'} of normal payouts, so the clue was elsewhere:</footer>
           {s && <div className="idmini">
             <div><span>Highest normal withdrawal ID</span><b className="mono">{NUM.format(s.normal_id_max)}</b></div>
-            <div className="bad"><span>Attack withdrawal ID</span><b className="mono">{NUM.format(s.attack_ids[0])}</b></div>
+            <div className="is-bad"><span>Attack withdrawal ID</span><b className="mono">{NUM.format(s.attack_ids[0])}</b></div>
           </div>}
-        </Cell>
-        <Cell to="/console/contagion" className="b-contagion">
+        </Link>
+        <Link to="/console/contagion" className="l-cell b-contagion">
           <header><TreeStructure size={22} weight="light" /><h3>Contagion Radar</h3></header>
           <p>Copy-paste payouts grouped into one swarm, with a fitted spread number.</p>
           <Spark data={data} />
           <footer><b className="mono">{nm ? nm.max_cluster : '…'}</b> payouts in the biggest Nomad copycat cluster</footer>
-        </Cell>
-        <Cell to="/console/pairing" className="b-pairing">
+        </Link>
+        <Link to="/console/pairing" className="l-cell b-pairing">
           <header><Cube size={22} weight="light" /><h3>Ledger Pairing</h3></header>
-          <p>Every coin out must pair with one coin in, matched by amount, person and timing.</p>
+          <p>Every coin out must pair with one coin in, matched by amount, recipient and timing.</p>
           <div className="pairbars">
-            <div><span>Match by message ID</span><i style={{ width: `${idPct}%` }} /><b className="mono">{idOnly}</b></div>
-            <div className="ours"><span>Ledger pairing</span><i style={{ width: '100%' }} /><b className="mono">{nm ? `${nm.attack_flagged_exploit}/${nm.attack_releases}` : '…'}</b></div>
+            <div><span>Match by message ID</span><i><em style={{ width: `${idPct}%` }} /></i><b className="mono">{idOnly}</b></div>
+            <div className="ours"><span>Ledger pairing</span><i><em style={{ width: '100%' }} /></i><b className="mono">{nm ? `${nm.attack_flagged_exploit}/${nm.attack_releases}` : '…'}</b></div>
           </div>
           <footer>Nomad attack payouts caught. Copycats reused real message IDs.</footer>
-        </Cell>
+        </Link>
       </div>
     </section>
   );
@@ -222,13 +218,11 @@ function Steps() {
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start 75%', 'end 55%'] });
   const h = useTransform(scrollYProgress, [0, 1], ['0%', '100%']);
   return (
-    <section className="steps3 wrap">
-      <Rise className="steps3-head"><h2>From a payout to a verdict.</h2><p>Five steps run on every payout, in order, as it arrives.</p></Rise>
-      <ol ref={ref} className="steps3-list">
-        <motion.span className="steps3-fill" style={{ height: h }} aria-hidden="true" />
-        {STEPS.map(([k, v], i) => (
-          <Rise key={k} delay={i * 0.04}><li><b>{k}</b><p>{v}</p></li></Rise>
-        ))}
+    <section className="l-sec l-steps wrap">
+      <Rise className="l-steps-head"><h2 className="l-h">From a payout to a verdict.</h2><p>Five steps run on every payout, in order, as it arrives.</p></Rise>
+      <ol ref={ref} className="l-steps-list">
+        <motion.span className="l-steps-fill" style={{ height: h }} aria-hidden="true" />
+        {STEPS.map(([k, v], i) => <Rise key={k} delay={i * 0.04}><li><span className="mono">{i + 1}</span><b>{k}</b><p>{v}</p></li></Rise>)}
       </ol>
     </section>
   );
@@ -236,18 +230,19 @@ function Steps() {
 
 function Showcase() {
   return (
-    <section className="show wrap">
-      <Rise className="show-copy">
-        <h2>Watch it catch a real hack.</h2>
-        <p>The console replays Nomad and Ronin payout by payout. Every alert comes with a risk score, the likely attack, its reasons and a check you can repeat.</p>
-        <div className="show-links">
-          <Link to="/console/map" className="textlink"><ShieldWarning size={16} weight="light" /> Open the 3D map</Link>
-          <Link to="/console/evidence" className="textlink">Check a payout yourself</Link>
-          <Link to="/console/results" className="textlink">See every result</Link>
+    <section className="l-sec l-show wrap">
+      <Rise className="l-show-copy">
+        <h2 className="l-h">Watch it catch a real hack.</h2>
+        <p>The console replays Nomad and Ronin payout by payout. Every alert opens a case file: the payout, the deposit search, the statistical signals, the suspected type and an evidence bundle you can re-check.</p>
+        <div className="l-links">
+          <Link to="/console/live?feed=nomad" className="textlink">Open the live console <ArrowRight size={14} /></Link>
+          <Link to="/console/evidence" className="textlink">Check a payout yourself <ArrowRight size={14} /></Link>
+          <Link to="/console/results" className="textlink">See every result <ArrowRight size={14} /></Link>
         </div>
       </Rise>
-      <Rise className="show-frame" delay={0.1}>
-        <div className="show-bezel"><img src="/img/console.webp" alt="The live console during the Nomad replay: an exploit alert with risk 98, its reasons, and the 3D map of payouts" loading="lazy" /></div>
+      <Rise className="l-shot" delay={0.08}>
+        <img src="/img/console.webp" width={1440} height={1000} loading="lazy"
+          alt="The live console during the Nomad replay: $159.4M paid out without a valid deposit, the replay timeline, the conservation ledger and an open case file for a payout paid to the wrong person." />
       </Rise>
     </section>
   );
@@ -255,8 +250,8 @@ function Showcase() {
 
 function Closing() {
   return (
-    <section className="close3 wrap">
-      <Rise><h2>Coins out can never exceed coins in.</h2><Cta to="/console/live">Open the console</Cta></Rise>
+    <section className="l-close wrap">
+      <Rise className="l-close-in"><h2 className="l-h">Coins out can never exceed coins in.</h2><Cta to="/console/live">Open the console</Cta></Rise>
     </section>
   );
 }

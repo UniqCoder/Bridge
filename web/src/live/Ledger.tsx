@@ -26,7 +26,9 @@ export function Ledger({ data, n, t, domain, selected, onSelect, focus }: Props)
   const [hover, setHover] = useState<Ev | null>(null);
   useEffect(() => {
     const el = box.current!;
-    const ro = new ResizeObserver(() => setW(Math.max(320, el.clientWidth)));
+    const fit = () => { if (el.clientWidth) setW(Math.max(320, el.clientWidth)); };
+    fit();
+    const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);

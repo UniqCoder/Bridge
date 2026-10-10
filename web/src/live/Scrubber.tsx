@@ -10,7 +10,9 @@ export function Scrubber({ data, t, setT, domain }: { data: Replay; t: number; s
   const [W, setW] = useState(900);
   useEffect(() => {
     const el = box.current!;
-    const ro = new ResizeObserver(() => setW(Math.max(240, el.clientWidth)));
+    const fit = () => { if (el.clientWidth) setW(Math.max(240, el.clientWidth)); };
+    fit();
+    const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
